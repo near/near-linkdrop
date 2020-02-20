@@ -162,6 +162,7 @@ name = "linkdrop"
 version = "0.1.0"
 dependencies = [
  "borsh",
+ "bs58",
  "near-bindgen",
  "serde",
  "serde_json 1.0.40",
