@@ -38,7 +38,6 @@ impl LinkDrop {
 
     /// Claim tokens that are attached to the public key this tx is signed with.
     pub fn claim(&mut self) {
-        assert_eq!(env::signer_account_id(), env::current_account_id());
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
