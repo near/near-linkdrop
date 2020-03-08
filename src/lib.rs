@@ -12,7 +12,7 @@ pub struct LinkDrop {
     pub accounts: Map<PublicKey, Balance>,
 }
 
-const ACCESS_KEY_ALLOWANCE: u128 = 1_000_000_000_000_000_000;
+const ACCESS_KEY_ALLOWANCE: u128 = 100_000_000_000_000_000_000;
 
 fn str_to_public_key(public_key: String) -> PublicKey {
     let mut pk = vec![0];
@@ -30,7 +30,7 @@ impl LinkDrop {
             pk,
             ACCESS_KEY_ALLOWANCE,
             env::current_account_id(),
-            "claim,promise_batch_action_add_key_with_function_call"
+            "claim,create_account_and_claim,promise_batch_action_add_key_with_function_call"
                 .to_string()
                 .into_bytes(),
         );
