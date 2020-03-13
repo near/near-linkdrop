@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use near_bindgen::collections::Map;
-use near_bindgen::{env, near_bindgen, AccountId, Balance, Promise, PublicKey, PromiseOrValue};
+use near_bindgen::{env, near_bindgen, AccountId, Balance, Promise, PublicKey};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -23,7 +23,7 @@ fn str_to_public_key(public_key: String) -> PublicKey {
 #[near_bindgen]
 impl LinkDrop {
     /// Allows given public key to claim sent balance.
-    pub fn send(&mut self, public_key: String) -> PromiseOrValue<()> {
+    pub fn send(&mut self, public_key: String) -> Promise {
         let pk = str_to_public_key(public_key);
         self.accounts.insert(&pk, &env::attached_deposit());
         Promise::new(env::current_account_id())
@@ -35,21 +35,20 @@ impl LinkDrop {
                     .to_string()
                     .into_bytes(),
             )
-            .into()
     }
 
     /// Claim tokens that are attached to the public key this tx is signed with.
-    pub fn claim(&mut self) -> PromiseOrValue<()> {
+    pub fn claim(&mut self) -> Promise {
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
             .expect("Unexpected public key");
         Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
-        Promise::new(env::predecessor_account_id()).transfer(amount).into()
+        Promise::new(env::predecessor_account_id()).transfer(amount)
     }
 
     /// Create new account and and claim tokens to it.
-    pub fn create_account_and_claim(&mut self, new_account_id: AccountId, new_public_key: String) -> PromiseOrValue<()> {
+    pub fn create_account_and_claim(&mut self, new_account_id: AccountId, new_public_key: String) -> Promise {
         assert_eq!(env::signer_account_id(), env::current_account_id());
         let amount = self
             .accounts
@@ -60,7 +59,6 @@ impl LinkDrop {
             .create_account()
             .add_full_access_key(str_to_public_key(new_public_key))
             .transfer(amount)
-            .into()
     }
 }
 
