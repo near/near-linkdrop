@@ -23,31 +23,32 @@ fn str_to_public_key(public_key: String) -> PublicKey {
 #[near_bindgen]
 impl LinkDrop {
     /// Allows given public key to claim sent balance.
-    pub fn send(&mut self, public_key: String) {
+    pub fn send(&mut self, public_key: String) -> Promise {
         let pk = str_to_public_key(public_key);
         self.accounts.insert(&pk, &env::attached_deposit());
-        Promise::new(env::current_account_id()).add_access_key(
-            pk,
-            ACCESS_KEY_ALLOWANCE,
-            env::current_account_id(),
-            "claim,create_account_and_claim,promise_batch_action_add_key_with_function_call"
-                .to_string()
-                .into_bytes(),
-        );
+        Promise::new(env::current_account_id())
+            .add_access_key(
+                pk,
+                ACCESS_KEY_ALLOWANCE,
+                env::current_account_id(),
+                "claim,create_account_and_claim,promise_batch_action_add_key_with_function_call"
+                    .to_string()
+                    .into_bytes(),
+            )
     }
 
     /// Claim tokens that are attached to the public key this tx is signed with.
-    pub fn claim(&mut self) {
+    pub fn claim(&mut self) -> Promise {
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
             .expect("Unexpected public key");
         Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
-        Promise::new(env::predecessor_account_id()).transfer(amount);
+        Promise::new(env::predecessor_account_id()).transfer(amount)
     }
 
     /// Create new account and and claim tokens to it.
-    pub fn create_account_and_claim(&mut self, new_account_id: AccountId, new_public_key: String) {
+    pub fn create_account_and_claim(&mut self, new_account_id: AccountId, new_public_key: String) -> Promise {
         assert_eq!(env::signer_account_id(), env::current_account_id());
         let amount = self
             .accounts
@@ -57,7 +58,7 @@ impl LinkDrop {
         Promise::new(new_account_id)
             .create_account()
             .add_full_access_key(str_to_public_key(new_public_key))
-            .transfer(amount);
+            .transfer(amount)
     }
 }
 
