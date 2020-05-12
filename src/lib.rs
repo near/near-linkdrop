@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-
-use near_bindgen::collections::Map;
-use near_bindgen::{env, near_bindgen, AccountId, Balance, Promise, PublicKey};
+use near_sdk::{AccountId, Balance, env, near_bindgen, Promise, PublicKey};
+use near_sdk::collections::Map;
+use near_sdk::json_types::Base58PublicKey;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -12,19 +12,14 @@ pub struct LinkDrop {
     pub accounts: Map<PublicKey, Balance>,
 }
 
-const ACCESS_KEY_ALLOWANCE: u128 = 100_000_000_000_000_000_000;
-
-fn str_to_public_key(public_key: String) -> PublicKey {
-    let mut pk = vec![0];
-    pk.extend(bs58::decode(public_key).into_vec().unwrap());
-    pk
-}
+const ACCESS_KEY_ALLOWANCE: u128 = 10_000_000_000_000;
 
 #[near_bindgen]
 impl LinkDrop {
     /// Allows given public key to claim sent balance.
-    pub fn send(&mut self, public_key: String) -> Promise {
-        let pk = str_to_public_key(public_key);
+    #[payable]
+    pub fn send(&mut self, public_key: Base58PublicKey) -> Promise {
+        let pk = public_key.into();
         self.accounts.insert(&pk, &env::attached_deposit());
         Promise::new(env::current_account_id())
             .add_access_key(
@@ -48,7 +43,7 @@ impl LinkDrop {
     }
 
     /// Create new account and and claim tokens to it.
-    pub fn create_account_and_claim(&mut self, new_account_id: AccountId, new_public_key: String) -> Promise {
+    pub fn create_account_and_claim(&mut self, new_account_id: AccountId, new_public_key: Base58PublicKey) -> Promise {
         assert_eq!(env::signer_account_id(), env::current_account_id());
         let amount = self
             .accounts
@@ -57,16 +52,25 @@ impl LinkDrop {
         Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
         Promise::new(new_account_id)
             .create_account()
-            .add_full_access_key(str_to_public_key(new_public_key))
+            .add_full_access_key(new_public_key.into())
             .transfer(amount)
+    }
+
+    /// Create new account without linkdrop and deposit passed funds (used for creating sub accounts directly).
+    #[payable]
+    pub fn create_account(&mut self, new_account_id: AccountId, new_public_key: Base58PublicKey) -> Promise {
+        let amount = env::attached_deposit();
+        Promise::new(new_account_id).create_account().add_full_access_key(new_public_key.into()).transfer(amount)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, BlockHeight, PublicKey, VMContext};
+    use std::convert::TryInto;
+
+    use near_sdk::{BlockHeight, PublicKey, testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
 
     use super::*;
 
@@ -84,6 +88,7 @@ mod tests {
                     predecessor_account_id: "".to_string(),
                     input: vec![],
                     block_index: 0,
+                    epoch_height: 0,
                     block_timestamp: 0,
                     account_balance: 0,
                     account_locked_balance: 0,
@@ -151,9 +156,22 @@ mod tests {
     }
 
     #[test]
+    fn test_create_account() {
+        let mut contract = LinkDrop::default();
+        let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap();
+        let deposit = 1_000_000;
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .finish());
+        contract.create_account(bob(), pk);
+        // TODO: verify that promise was created with funds for given username.
+    }
+
+    #[test]
     fn test_drop_claim() {
         let mut contract = LinkDrop::default();
-        let pk = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".to_string();
+        let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap();
         // Deposit money to linkdrop contract.
         let deposit = 1_000_000;
         testing_env!(VMContextBuilder::new()
@@ -165,11 +183,11 @@ mod tests {
         let context = VMContextBuilder::new()
             .current_account_id(linkdrop())
             .signer_account_id(linkdrop())
-            .signer_account_pk(str_to_public_key(pk))
+            .signer_account_pk(pk.into())
             .account_balance(deposit)
             .finish();
         testing_env!(context);
-        let pk2 = "2S87aQ1PM9o6eBcEXnTR5yBAVRTiNmvj8J8ngZ6FzSca".to_string();
+        let pk2 = "2S87aQ1PM9o6eBcEXnTR5yBAVRTiNmvj8J8ngZ6FzSca".try_into().unwrap();
         contract.create_account_and_claim(bob(), pk2);
         // TODO: verify that proper promises were created.
     }
