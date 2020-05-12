@@ -12,7 +12,7 @@ pub struct LinkDrop {
     pub accounts: Map<PublicKey, Balance>,
 }
 
-const ACCESS_KEY_ALLOWANCE: u128 = 10_000_000_000_000;
+const ACCESS_KEY_ALLOWANCE: u128 = 1_000_000_000_000_000_000_000;
 
 #[near_bindgen]
 impl LinkDrop {
