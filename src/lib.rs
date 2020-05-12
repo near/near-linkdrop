@@ -20,13 +20,14 @@ impl LinkDrop {
     #[payable]
     pub fn send(&mut self, public_key: Base58PublicKey) -> Promise {
         let pk = public_key.into();
-        self.accounts.insert(&pk, &env::attached_deposit());
+        let value = self.accounts.get(&pk).unwrap_or(0);
+        self.accounts.insert(&pk, &(value + env::attached_deposit()));
         Promise::new(env::current_account_id())
             .add_access_key(
                 pk,
                 ACCESS_KEY_ALLOWANCE,
                 env::current_account_id(),
-                "claim,create_account_and_claim,promise_batch_action_add_key_with_function_call"
+                "claim,create_account_and_claim"
                     .to_string()
                     .into_bytes(),
             )
@@ -44,7 +45,8 @@ impl LinkDrop {
 
     /// Create new account and and claim tokens to it.
     pub fn create_account_and_claim(&mut self, new_account_id: AccountId, new_public_key: Base58PublicKey) -> Promise {
-        assert_eq!(env::signer_account_id(), env::current_account_id());
+        assert_eq!(env::signer_account_id(), env::current_account_id(), "Create account and claim only can come from this account");
+        assert!(env::is_valid_account_id(new_account_id.as_bytes()), "Invalid account id");
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
@@ -59,6 +61,7 @@ impl LinkDrop {
     /// Create new account without linkdrop and deposit passed funds (used for creating sub accounts directly).
     #[payable]
     pub fn create_account(&mut self, new_account_id: AccountId, new_public_key: Base58PublicKey) -> Promise {
+        assert!(env::is_valid_account_id(new_account_id.as_bytes()), "Invalid account id");
         let amount = env::attached_deposit();
         Promise::new(new_account_id).create_account().add_full_access_key(new_public_key.into()).transfer(amount)
     }
@@ -117,6 +120,7 @@ mod tests {
             self
         }
 
+        #[allow(dead_code)]
         pub fn block_index(mut self, block_index: BlockHeight) -> Self {
             self.context.block_index = block_index;
             self
@@ -169,6 +173,43 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn test_create_invalid_account() {
+        let mut contract = LinkDrop::default();
+        let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap();
+        let deposit = 1_000_000;
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .finish());
+        contract.create_account("XYZ".to_string(), pk);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_claim_invalid_account() {
+        let mut contract = LinkDrop::default();
+        let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap();
+        // Deposit money to linkdrop contract.
+        let deposit = 1_000_000;
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .finish());
+        contract.send(pk.clone());
+        // Now, send new transaction to link drop contract.
+        let context = VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .signer_account_id(linkdrop())
+            .signer_account_pk(pk.into())
+            .account_balance(deposit)
+            .finish();
+        testing_env!(context);
+        let pk2 = "2S87aQ1PM9o6eBcEXnTR5yBAVRTiNmvj8J8ngZ6FzSca".try_into().unwrap();
+        contract.create_account_and_claim("XYZ".to_string(), pk2);
+    }
+
+    #[test]
     fn test_drop_claim() {
         let mut contract = LinkDrop::default();
         let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap();
@@ -190,5 +231,25 @@ mod tests {
         let pk2 = "2S87aQ1PM9o6eBcEXnTR5yBAVRTiNmvj8J8ngZ6FzSca".try_into().unwrap();
         contract.create_account_and_claim(bob(), pk2);
         // TODO: verify that proper promises were created.
+    }
+
+    #[test]
+    fn test_send_two_times() {
+        let mut contract = LinkDrop::default();
+        let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap();
+        // Deposit money to linkdrop contract.
+        let deposit = 1_000_000;
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .finish());
+        contract.send(pk.clone());
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .account_balance(deposit)
+            .attached_deposit(deposit + 1)
+            .finish());
+        contract.send(pk.clone());
+        assert_eq!(contract.accounts.get(&pk.into()).unwrap(), deposit + deposit + 1);
     }
 }
