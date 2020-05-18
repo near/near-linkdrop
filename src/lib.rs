@@ -57,14 +57,19 @@ impl LinkDrop {
         )
     }
 
-    /// Claim tokens that are attached to the public key this tx is signed with.
-    pub fn claim(&mut self) -> Promise {
+    /// Claim tokens for specific account that are attached to the public key this tx is signed with.
+    pub fn claim(&mut self, account_id: AccountId) -> Promise {
+        assert_eq!(
+            env::predecessor_account_id(),
+            env::current_account_id(),
+            "Claim only can come from this account"
+        );
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
             .expect("Unexpected public key");
         Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
-        Promise::new(env::predecessor_account_id()).transfer(amount)
+        Promise::new(account_id).transfer(amount)
     }
 
     /// Create new account and and claim tokens to it.
@@ -74,7 +79,7 @@ impl LinkDrop {
         new_public_key: Base58PublicKey,
     ) -> Promise {
         assert_eq!(
-            env::signer_account_id(),
+            env::predecessor_account_id(),
             env::current_account_id(),
             "Create account and claim only can come from this account"
         );
@@ -169,12 +174,12 @@ mod tests {
             self
         }
 
+        #[allow(dead_code)]
         pub fn signer_account_id(mut self, account_id: AccountId) -> Self {
             self.context.signer_account_id = account_id;
             self
         }
 
-        #[allow(dead_code)]
         pub fn predecessor_account_id(mut self, account_id: AccountId) -> Self {
             self.context.predecessor_account_id = account_id;
             self
@@ -267,7 +272,7 @@ mod tests {
         // Now, send new transaction to link drop contract.
         let context = VMContextBuilder::new()
             .current_account_id(linkdrop())
-            .signer_account_id(linkdrop())
+            .predecessor_account_id(linkdrop())
             .signer_account_pk(pk.into())
             .account_balance(deposit)
             .finish();
@@ -294,7 +299,7 @@ mod tests {
         // Now, send new transaction to link drop contract.
         let context = VMContextBuilder::new()
             .current_account_id(linkdrop())
-            .signer_account_id(linkdrop())
+            .predecessor_account_id(linkdrop())
             .signer_account_pk(pk.into())
             .account_balance(deposit)
             .finish();
