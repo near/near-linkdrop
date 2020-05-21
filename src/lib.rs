@@ -1,9 +1,9 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{
-    AccountId, Balance, env, ext_contract, near_bindgen, Promise, PromiseResult, PublicKey,
-};
 use near_sdk::collections::Map;
 use near_sdk::json_types::{Base58PublicKey, U128};
+use near_sdk::{
+    env, ext_contract, near_bindgen, AccountId, Balance, Promise, PromiseResult, PublicKey,
+};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -50,11 +50,16 @@ impl LinkDrop {
     /// Takes ACCESS_KEY_ALLOWANCE as fee from deposit to cover account creation via an access key.
     #[payable]
     pub fn send(&mut self, public_key: Base58PublicKey) -> Promise {
-        assert!(env::attached_deposit() > ACCESS_KEY_ALLOWANCE, "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE");
+        assert!(
+            env::attached_deposit() > ACCESS_KEY_ALLOWANCE,
+            "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE"
+        );
         let pk = public_key.into();
         let value = self.accounts.get(&pk).unwrap_or(0);
-        self.accounts
-            .insert(&pk, &(value + env::attached_deposit() - ACCESS_KEY_ALLOWANCE));
+        self.accounts.insert(
+            &pk,
+            &(value + env::attached_deposit() - ACCESS_KEY_ALLOWANCE),
+        );
         Promise::new(env::current_account_id()).add_access_key(
             pk,
             ACCESS_KEY_ALLOWANCE,
@@ -129,7 +134,13 @@ impl LinkDrop {
             .create_account()
             .add_full_access_key(new_public_key.into())
             .transfer(amount)
-            .then(ext_self::on_account_created(env::predecessor_account_id(), amount.into(), &env::current_account_id(), NO_DEPOSIT, ON_CREATE_ACCOUNT_CALLBACK_GAS))
+            .then(ext_self::on_account_created(
+                env::predecessor_account_id(),
+                amount.into(),
+                &env::current_account_id(),
+                NO_DEPOSIT,
+                ON_CREATE_ACCOUNT_CALLBACK_GAS,
+            ))
     }
 
     /// Callback after executing `create_account`.
@@ -159,7 +170,8 @@ impl LinkDrop {
             Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
         } else {
             // In case of failure, put the amount back.
-            self.accounts.insert(&env::signer_account_pk(), &amount.into());
+            self.accounts
+                .insert(&env::signer_account_pk(), &amount.into());
         }
         creation_succeeded
     }
@@ -170,8 +182,8 @@ impl LinkDrop {
 mod tests {
     use std::convert::TryInto;
 
-    use near_sdk::{BlockHeight, PublicKey, testing_env, VMContext};
     use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, BlockHeight, PublicKey, VMContext};
 
     use super::*;
 
