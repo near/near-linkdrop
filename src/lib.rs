@@ -1,9 +1,9 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::Map;
-use near_sdk::json_types::Base58PublicKey;
 use near_sdk::{
-    env, ext_contract, near_bindgen, AccountId, Balance, Promise, PromiseResult, PublicKey,
+    AccountId, Balance, env, ext_contract, near_bindgen, Promise, PromiseResult, PublicKey,
 };
+use near_sdk::collections::Map;
+use near_sdk::json_types::{Base58PublicKey, U128};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -25,7 +25,11 @@ const NO_DEPOSIT: u128 = 0;
 
 #[ext_contract(ext_self)]
 pub trait ExtLinkDrop {
-    fn on_account_created_and_claimed(&mut self) -> bool;
+    /// Callback after plain account creation.
+    fn on_account_created(&mut self, account_id: AccountId, amount: U128) -> bool;
+
+    /// Callback after creating account and claiming linkdrop.
+    fn on_account_created_and_claimed(&mut self, amount: U128) -> bool;
 }
 
 fn is_promise_success() -> bool {
@@ -43,17 +47,19 @@ fn is_promise_success() -> bool {
 #[near_bindgen]
 impl LinkDrop {
     /// Allows given public key to claim sent balance.
+    /// Takes ACCESS_KEY_ALLOWANCE as fee from deposit to cover account creation via an access key.
     #[payable]
     pub fn send(&mut self, public_key: Base58PublicKey) -> Promise {
+        assert!(env::attached_deposit() > ACCESS_KEY_ALLOWANCE, "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE");
         let pk = public_key.into();
         let value = self.accounts.get(&pk).unwrap_or(0);
         self.accounts
-            .insert(&pk, &(value + env::attached_deposit()));
+            .insert(&pk, &(value + env::attached_deposit() - ACCESS_KEY_ALLOWANCE));
         Promise::new(env::current_account_id()).add_access_key(
             pk,
             ACCESS_KEY_ALLOWANCE,
             env::current_account_id(),
-            "claim,create_account_and_claim".to_string().into_bytes(),
+            b"claim,create_account_and_claim".to_vec(),
         )
     }
 
@@ -63,6 +69,10 @@ impl LinkDrop {
             env::predecessor_account_id(),
             env::current_account_id(),
             "Claim only can come from this account"
+        );
+        assert!(
+            env::is_valid_account_id(account_id.as_bytes()),
+            "Invalid account id"
         );
         let amount = self
             .accounts
@@ -89,13 +99,14 @@ impl LinkDrop {
         );
         let amount = self
             .accounts
-            .get(&env::signer_account_pk())
+            .remove(&env::signer_account_pk())
             .expect("Unexpected public key");
         Promise::new(new_account_id)
             .create_account()
             .add_full_access_key(new_public_key.into())
             .transfer(amount)
             .then(ext_self::on_account_created_and_claimed(
+                amount.into(),
                 &env::current_account_id(),
                 NO_DEPOSIT,
                 ON_CREATE_ACCOUNT_CALLBACK_GAS,
@@ -118,14 +129,37 @@ impl LinkDrop {
             .create_account()
             .add_full_access_key(new_public_key.into())
             .transfer(amount)
+            .then(ext_self::on_account_created(env::predecessor_account_id(), amount.into(), &env::current_account_id(), NO_DEPOSIT, ON_CREATE_ACCOUNT_CALLBACK_GAS))
     }
 
-    /// Called after account creation & claim was called.
-    pub fn on_account_created_and_claimed(&mut self) -> bool {
+    /// Callback after executing `create_account`.
+    pub fn on_account_created(&mut self, predecessor_account_id: AccountId, amount: U128) -> bool {
+        assert_eq!(
+            env::predecessor_account_id(),
+            env::current_account_id(),
+            "Callback can only be called from the contract"
+        );
+        let creation_succeeded = is_promise_success();
+        if !creation_succeeded {
+            // In case of failure, send funds back.
+            Promise::new(predecessor_account_id).transfer(amount.into());
+        }
+        creation_succeeded
+    }
+
+    /// Callback after execution `create_account_and_claim`.
+    pub fn on_account_created_and_claimed(&mut self, amount: U128) -> bool {
+        assert_eq!(
+            env::predecessor_account_id(),
+            env::current_account_id(),
+            "Callback can only be called from the contract"
+        );
         let creation_succeeded = is_promise_success();
         if creation_succeeded {
             Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
-            self.accounts.remove(&env::signer_account_pk());
+        } else {
+            // In case of failure, put the amount back.
+            self.accounts.insert(&env::signer_account_pk(), &amount.into());
         }
         creation_succeeded
     }
@@ -136,8 +170,8 @@ impl LinkDrop {
 mod tests {
     use std::convert::TryInto;
 
+    use near_sdk::{BlockHeight, PublicKey, testing_env, VMContext};
     use near_sdk::MockedBlockchain;
-    use near_sdk::{testing_env, BlockHeight, PublicKey, VMContext};
 
     use super::*;
 
@@ -263,7 +297,7 @@ mod tests {
             .try_into()
             .unwrap();
         // Deposit money to linkdrop contract.
-        let deposit = 1_000_000;
+        let deposit = ACCESS_KEY_ALLOWANCE * 100;
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
             .attached_deposit(deposit)
@@ -290,7 +324,7 @@ mod tests {
             .try_into()
             .unwrap();
         // Deposit money to linkdrop contract.
-        let deposit = 1_000_000;
+        let deposit = ACCESS_KEY_ALLOWANCE * 100;
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
             .attached_deposit(deposit)
@@ -318,7 +352,7 @@ mod tests {
             .try_into()
             .unwrap();
         // Deposit money to linkdrop contract.
-        let deposit = 1_000_000;
+        let deposit = ACCESS_KEY_ALLOWANCE * 100;
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
             .attached_deposit(deposit)
@@ -332,7 +366,7 @@ mod tests {
         contract.send(pk.clone());
         assert_eq!(
             contract.accounts.get(&pk.into()).unwrap(),
-            deposit + deposit + 1
+            deposit + deposit + 1 - 2 * ACCESS_KEY_ALLOWANCE
         );
     }
 }
