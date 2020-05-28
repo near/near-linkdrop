@@ -18,7 +18,7 @@ pub struct LinkDrop {
 const ACCESS_KEY_ALLOWANCE: u128 = 1_000_000_000_000_000_000_000;
 
 /// Gas attached to the callback from account creation.
-pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: u64 = 100_000_000_000_000;
+pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: u64 = 40_000_000_000_000;
 
 /// Indicates there are no deposit for a callback for better readability.
 const NO_DEPOSIT: u128 = 0;
