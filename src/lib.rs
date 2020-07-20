@@ -26,7 +26,7 @@ const NO_DEPOSIT: u128 = 0;
 #[ext_contract(ext_self)]
 pub trait ExtLinkDrop {
     /// Callback after plain account creation.
-    fn on_account_created(&mut self, account_id: AccountId, amount: U128) -> bool;
+    fn on_account_created(&mut self, predecessor_account_id: AccountId, amount: U128) -> bool;
 
     /// Callback after creating account and claiming linkdrop.
     fn on_account_created_and_claimed(&mut self, amount: U128) -> bool;
