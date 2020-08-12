@@ -15,7 +15,7 @@ pub struct LinkDrop {
 }
 
 /// Access key allowance for linkdrop keys.
-const ACCESS_KEY_ALLOWANCE: u128 = 100_000_000_000_000_000_000_000;
+const ACCESS_KEY_ALLOWANCE: u128 = 1_000_000_000_000_000_000_000_000;
 
 /// Gas attached to the callback from account creation.
 pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: u64 = 20_000_000_000_000;
