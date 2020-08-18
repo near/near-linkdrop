@@ -175,6 +175,11 @@ impl LinkDrop {
         }
         creation_succeeded
     }
+
+    /// Returns the balance associated with given key.
+    pub fn get_key_balance(&self, key: Base58PublicKey) -> U128 {
+        self.accounts.get(&key.into()).expect("Key is missing").into()
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -303,6 +308,13 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn test_get_missing_balance() {
+        let contract = LinkDrop::default();
+        contract.get_key_balance("qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap());
+    }
+
+    #[test]
+    #[should_panic]
     fn test_claim_invalid_account() {
         let mut contract = LinkDrop::default();
         let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
@@ -370,6 +382,7 @@ mod tests {
             .attached_deposit(deposit)
             .finish());
         contract.send(pk.clone());
+        assert_eq!(contract.get_key_balance(pk.clone()), (deposit - ACCESS_KEY_ALLOWANCE).into());
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
             .account_balance(deposit)
