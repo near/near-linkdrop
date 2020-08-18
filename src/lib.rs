@@ -308,9 +308,29 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_get_missing_balance() {
+    fn test_get_missing_balance_panics() {
         let contract = LinkDrop::default();
         contract.get_key_balance("qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap());
+    }
+
+    #[test]
+    fn test_get_missing_balance_success() {
+        let mut contract = LinkDrop::default();
+        let pk: Base58PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
+            .try_into()
+            .unwrap();
+        let deposit = ACCESS_KEY_ALLOWANCE * 100;
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .finish());
+        contract.send(pk.clone());
+        // try getting the balance of the key
+        let balance:u128 = contract.get_key_balance(pk.try_into().unwrap()).try_into().unwrap();
+        assert_eq!(
+            balance,
+            deposit - ACCESS_KEY_ALLOWANCE
+        );
     }
 
     #[test]
