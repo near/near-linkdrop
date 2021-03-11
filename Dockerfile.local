@@ -1,4 +1,4 @@
-FROM bridge as bridge
+FROM nearprotocol/bridge as bridge
 FROM ubuntu:20.04 as wasm
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -29,6 +29,7 @@ RUN ./build.sh
 FROM node:12
 ENV NEAR_ENV local
 RUN npm install -g near-cli
-COPY --from=bridge /root/.near/localnet/node0/validator_key.json .
+RUN mkdir ~/.near
+COPY --from=bridge /root/.near/localnet/node0/validator_key.json ~/.near
 COPY --from=wasm /root/res/linkdrop.wasm .
 CMD ["near deploy --accountId node0 --wasmFile linkdrop.wasm --keyPath validator_key.json --nodeUrl $NODE_URL"]
