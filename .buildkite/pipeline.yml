@@ -1,0 +1,4 @@
+steps:
+    - label: publish docker
+      command: ./scripts/docker-release.sh
+      branches: "master | mhala-docker"
