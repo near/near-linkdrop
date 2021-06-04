@@ -310,6 +310,9 @@ mod tests {
     #[should_panic]
     fn test_get_missing_balance_panics() {
         let contract = LinkDrop::default();
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .finish());
         contract.get_key_balance("qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap());
     }
 
