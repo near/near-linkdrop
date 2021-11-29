@@ -15,7 +15,7 @@ pub struct LinkDrop {
 }
 
 /// Access key allowance for linkdrop keys.
-const ACCESS_KEY_ALLOWANCE: u128 = 1_000_000_000_000_000_000_000_000;
+const ACCESS_KEY_ALLOWANCE: u128 = 100_000_000_000_000_000_000_000;
 
 /// Gas attached to the callback from account creation.
 pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: u64 = 20_000_000_000_000;
@@ -50,15 +50,15 @@ impl LinkDrop {
     /// Takes ACCESS_KEY_ALLOWANCE as fee from deposit to cover account creation via an access key.
     #[payable]
     pub fn send(&mut self, public_key: Base58PublicKey) -> Promise {
-        assert!(
-            env::attached_deposit() > ACCESS_KEY_ALLOWANCE,
-            "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE"
-        );
+        // assert!(
+        //    env::attached_deposit() > ACCESS_KEY_ALLOWANCE,
+        //    "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE"
+        //);
         let pk = public_key.into();
         let value = self.accounts.get(&pk).unwrap_or(0);
         self.accounts.insert(
             &pk,
-            &(value + env::attached_deposit() - ACCESS_KEY_ALLOWANCE),
+            &(value + env::attached_deposit()),
         );
         Promise::new(env::current_account_id()).add_access_key(
             pk,
