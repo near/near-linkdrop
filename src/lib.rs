@@ -23,6 +23,24 @@ pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: u64 = 20_000_000_000_000;
 /// Indicates there are no deposit for a callback for better readability.
 const NO_DEPOSIT: u128 = 0;
 
+#[ext_contract(ext_dummy_nft)]
+pub trait ExtDummyNFT {
+    fn nft_transfer_call(
+        &mut self,
+        receiver_id: ValidAccountId,
+        token_id: TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+        msg: String,
+    ) -> PromiseOrValue<bool>
+
+    fn nft_is_approved(
+        &mut self,
+        token_id: TokenId,
+        approved_account_id: AccountId
+    ) -> Some<bool>
+}
+
 #[ext_contract(ext_self)]
 pub trait ExtLinkDrop {
     /// Callback after plain account creation.
@@ -30,6 +48,9 @@ pub trait ExtLinkDrop {
 
     /// Callback after creating account and claiming linkdrop.
     fn on_account_created_and_claimed(&mut self, amount: U128) -> bool;
+
+    /// Callback after checking if current account is whitelisted.
+    fn on_nft_is_approved(&mut self, predecessor_account_id: AccountId, token_id: TokenId) -> u64;
 }
 
 fn is_promise_success() -> bool {
@@ -69,7 +90,7 @@ impl LinkDrop {
     }
 
     /// Claim tokens for specific account that are attached to the public key this tx is signed with.
-    pub fn claim(&mut self, account_id: AccountId) -> Promise {
+    pub fn claim(&mut self, account_id: AccountId, nft_account_id: AccountId, token_id: TokenId) -> Promise {
         assert_eq!(
             env::predecessor_account_id(),
             env::current_account_id(),
@@ -83,8 +104,19 @@ impl LinkDrop {
             .accounts
             .remove(&env::signer_account_pk())
             .expect("Unexpected public key");
+
+        /* Check if contract is approved for NFT transfer*/
+        Promise::new(nft_account_id)
+            .ext_dummy_nft::nft_is_approved(token_id, env::signer_account_id())
+            .then(ext_self::on_nft_is_approved(&env::current_account_id(), token_id))
+            .then(ext_dummy_nft::nft_transfer_call(
+                account_id,
+                token_id,
+                // approval_id: Option<u64>,
+                // memo: Option<String>,
+                // msg: String,
+            ));
         Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
-        Promise::new(account_id).transfer(amount)
     }
 
     /// Create new account and and claim tokens to it.
@@ -176,9 +208,28 @@ impl LinkDrop {
         creation_succeeded
     }
 
+    pub fn on_nft_is_approved(&mut self, predecessor_account_id: AccountId, token_id: TokenId) -> u64 {
+        assert_eq!(env::predecessor_account_id(), env:current_account_id(), "Callback can only be called from the contract");
+        let approval = is_promise_success();
+        if approval {
+            // Current account id is approved by NFT contract.
+            // TODO: Get approved id from NFT account. Probably another call to NFT contract...
+            let approval_id = 0;
+            approval_id
+        }
+        else{
+            //Current account id is not in the list of approvals
+            //Not sure if something should hapen here..by now, just panic!
+            env::panic_str("Current account is not whitelisted".to_string());
+        }
+    }
+
     /// Returns the balance associated with given key.
     pub fn get_key_balance(&self, key: Base58PublicKey) -> U128 {
-        self.accounts.get(&key.into()).expect("Key is missing").into()
+        self.accounts
+            .get(&key.into())
+            .expect("Key is missing")
+            .into()
     }
 }
 
@@ -313,7 +364,11 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
             .finish());
-        contract.get_key_balance("qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz".try_into().unwrap());
+        contract.get_key_balance(
+            "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
+                .try_into()
+                .unwrap(),
+        );
     }
 
     #[test]
@@ -329,11 +384,11 @@ mod tests {
             .finish());
         contract.send(pk.clone());
         // try getting the balance of the key
-        let balance:u128 = contract.get_key_balance(pk.try_into().unwrap()).try_into().unwrap();
-        assert_eq!(
-            balance,
-            deposit - ACCESS_KEY_ALLOWANCE
-        );
+        let balance: u128 = contract
+            .get_key_balance(pk.try_into().unwrap())
+            .try_into()
+            .unwrap();
+        assert_eq!(balance, deposit - ACCESS_KEY_ALLOWANCE);
     }
 
     #[test]
@@ -405,7 +460,10 @@ mod tests {
             .attached_deposit(deposit)
             .finish());
         contract.send(pk.clone());
-        assert_eq!(contract.get_key_balance(pk.clone()), (deposit - ACCESS_KEY_ALLOWANCE).into());
+        assert_eq!(
+            contract.get_key_balance(pk.clone()),
+            (deposit - ACCESS_KEY_ALLOWANCE).into()
+        );
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
             .account_balance(deposit)
