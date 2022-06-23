@@ -18,7 +18,5 @@ panic = "abort"
 overflow-checks = true
 
 [dependencies]
-serde = { version = "*", features = ["derive"] }
-serde_json = "*"
 borsh = "0.9.3"
 near-sdk = "4.0.0"
