@@ -22,7 +22,3 @@ serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 borsh = "0.9.3"
 near-sdk = "4.0.0"
-wee_alloc = { version = "0.4.5", default-features = false, features = [] }
-
-[workspace]
-members = []

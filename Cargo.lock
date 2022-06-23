@@ -499,7 +499,6 @@ dependencies = [
  "near-sdk",
  "serde",
  "serde_json",
- "wee_alloc",
 ]
 
 [[package]]
