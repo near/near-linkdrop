@@ -507,4 +507,24 @@ mod tests {
         // Create bob's account with the advanced options
         contract.create_account_advanced(bob(), options);
     }
+
+    #[test]
+    #[should_panic]
+    fn test_create_advanced_account_no_options() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Default the deposit to an extremely small amount
+        let deposit = 1_000_000;
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .context.clone()
+        );
+
+        // Create bob's account with the advanced options
+        contract.create_account_advanced(bob(), CreateAccountOptions { full_access_keys: None, limited_access_keys: None, contract_bytes: None });
+    }
 }
