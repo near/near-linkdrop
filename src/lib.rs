@@ -158,8 +158,8 @@ impl LinkDrop {
         new_account_id: AccountId,
         options: CreateAccountOptions,
     ) -> Promise {
-        let num_options = options.contract_bytes.is_some() as u8 + options.full_access_keys.is_some() as u8 + options.limited_access_keys.is_some() as u8;
-        assert!(num_options >= 1, "Cannot create account with no options. Please specify either contract bytes, full access keys, or limited access keys.");
+        let is_some_option = options.contract_bytes.is_some() || options.full_access_keys.is_some() || options.limited_access_keys.is_some();
+        assert!(is_some_option, "Cannot create account with no options. Please specify either contract bytes, full access keys, or limited access keys.");
 
         let amount = env::attached_deposit();
 
@@ -167,14 +167,19 @@ impl LinkDrop {
         let mut promise = Promise::new(new_account_id).create_account().transfer(amount);
         
         // If there are any full access keys in the options, loop through and add them to the promise
-        for key in options.full_access_keys.unwrap_or(Vec::new()).iter() {
-            promise = promise.add_full_access_key(key.clone());
-        };
+        // If there are any full access keys in the options, loop through and add them to the promise
+        if let Some(full_access_keys) = options.full_access_keys {
+            for key in full_access_keys {
+                promise = promise.add_full_access_key(key.clone());
+            }
+        }
 
         // If there are any function call access keys in the options, loop through and add them to the promise
-        for key_info in options.limited_access_keys.unwrap_or(Vec::new()).iter() {
-            promise = promise.add_access_key(key_info.public_key.clone(), key_info.allowance.0, key_info.receiver_id.clone(), key_info.method_names.clone());
-        };
+        if let Some(limited_access_keys) = options.limited_access_keys {
+            for key_info in limited_access_keys {
+                promise = promise.add_access_key(key_info.public_key.clone(), key_info.allowance.0, key_info.receiver_id.clone(), key_info.method_names.clone());
+            }
+        }
 
         // If there are any contract bytes, we should deploy the contract to the account
         if let Some(bytes) = options.contract_bytes {
@@ -232,9 +237,11 @@ impl LinkDrop {
 
     /// Returns information associated with a given key.
     /// Part of the linkdrop NEP
-    pub fn get_key_information(&self, key: PublicKey) -> KeyInfo {
-        KeyInfo {
-            balance: self.accounts.get(&key.into()).expect("Key is missing").into(),
+    #[handle_result]
+    pub fn get_key_information(&self, key: PublicKey) -> Result<KeyInfo, &'static str> {
+        match self.accounts.get(&key) {
+            Some(balance) => Ok(KeyInfo { balance: U128(balance) }),
+            None => Err("Key is missing"),
         }
     }
 }
