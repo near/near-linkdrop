@@ -167,7 +167,6 @@ impl LinkDrop {
         let mut promise = Promise::new(new_account_id).create_account().transfer(amount);
         
         // If there are any full access keys in the options, loop through and add them to the promise
-        // If there are any full access keys in the options, loop through and add them to the promise
         if let Some(full_access_keys) = options.full_access_keys {
             for key in full_access_keys {
                 promise = promise.add_full_access_key(key.clone());
