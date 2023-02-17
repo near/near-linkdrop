@@ -1,17 +1,20 @@
 import anyTest, { TestFn } from "ava";
 import { NEAR, NearAccount, Worker } from "near-workspaces";
 import { displayFailureLog, generateKeyPairs, generateLimitedAccessKeyData } from "./utils/general";
-import {readFileSync} from 'fs';
+import { readFileSync } from 'fs';
+import { BN } from "bn.js";
+
+const ACCESS_KEY_ALLOWANCE = new BN("1000000000000000000000000");
+const ONE = new BN(1)
 
 const test = anyTest as TestFn<{
     worker: Worker;
     accounts: Record<string, NearAccount>;
-  }>;
+}>;
 
 test.beforeEach(async (t) => {
     // Init the worker and start a Sandbox server
     const worker = await Worker.init();
-    console.log("worker inited");
 
     // Prepare sandbox for tests, create accounts, deploy contracts, etc.
     const root = worker.rootAccount;
@@ -19,13 +22,10 @@ test.beforeEach(async (t) => {
     // Deploy the linkdrop contract and initialize it
     await root.deploy(`./res/linkdrop.wasm`);
     await root.call(root, 'new', {});
-    console.log(`Deployed root contract and initialized`);
 
     // // Test users
-    const creator = await root.createSubAccount('ali');
-    
+    const creator = await root.createSubAccount('creator');
     const claimer = await root.createSubAccount('claimer');
-    console.log(`sub-accounts created`);
 
     // Save state for test runs
     t.context.worker = worker;
@@ -39,18 +39,32 @@ test.afterEach(async t => {
     });
 });
 
+test('Fill and refill key', async t => {
+    const { root, creator } = t.context.accounts;
+    const { publicKeys } = await generateKeyPairs(1);
+
+    await creator.call(root, 'send', { "public_key": publicKeys[0] }, { attachedDeposit: ACCESS_KEY_ALLOWANCE.add(ONE) })
+    await creator.call(root, 'send', { "public_key": publicKeys[0] }, { attachedDeposit: ONE })
+
+    const balance = await creator.call(root, 'get_key_balance', { "key": publicKeys[0] })
+
+    // 1 + 1
+    t.is(balance, '2')
+});
+
+
 test('Add 5 different FAKs and Limited Access Keys', async t => {
     const { root, creator } = t.context.accounts;
-    const {publicKeys} = await generateKeyPairs(10);
+    const { publicKeys } = await generateKeyPairs(10);
     let newAccount = await root.getAccount(`new-account.${root.accountId}`);
     let doesNewAccountExist = await newAccount.exists();
     t.is(doesNewAccountExist, false);
 
     const res = await creator.callRaw(
-        root, 
-        'create_account_advanced', 
+        root,
+        'create_account_advanced',
         {
-            new_account_id: newAccount.accountId, 
+            new_account_id: newAccount.accountId,
             options: {
                 limited_access_keys: generateLimitedAccessKeyData(publicKeys.slice(0, 5), root.accountId, 'create_account_advanced'),
                 full_access_keys: publicKeys.slice(5, 10),
@@ -80,14 +94,14 @@ test('Deploy a contract and no keys', async t => {
     t.is(doesNewAccountExist, false);
 
     const contractBytes = Buffer.from(readFileSync('./__tests__/ext-wasm/nft-tutorial.wasm'));
-    const bytes =  Array.from(Uint8Array.from(contractBytes));
+    const bytes = Array.from(Uint8Array.from(contractBytes));
 
     // Try to create an account with a FAK and limited access key (both with same public key)
     const res = await creator.callRaw(
-        root, 
-        'create_account_advanced', 
+        root,
+        'create_account_advanced',
         {
-            new_account_id: newAccount.accountId, 
+            new_account_id: newAccount.accountId,
             options: {
                 contract_bytes: bytes,
             }
@@ -108,12 +122,12 @@ test('Deploy a contract and no keys', async t => {
     const newAccountKeys = await root.viewAccessKeys(newAccount.accountId);
     console.log('newAccountKeys: ', newAccountKeys)
     t.is(newAccountKeys.keys.length, 0);
-    
+
     const accountInfo = await newAccount.accountView();
     console.log('accountInfo: ', accountInfo);
     t.assert(accountInfo.code_hash != '11111111111111111111111111111111');
 
-    await creator.call(newAccount, 'new_default_meta', {owner_id: creator.accountId});
+    await creator.call(newAccount, 'new_default_meta', { owner_id: creator.accountId });
     const meta: any = await newAccount.view('nft_metadata', {});
     console.log('meta: ', meta)
     t.is(meta.symbol, 'GOTEAM');
@@ -121,17 +135,17 @@ test('Deploy a contract and no keys', async t => {
 
 test('Add 2 types of access keys with same public key', async t => {
     const { root, creator } = t.context.accounts;
-    const {publicKeys} = await generateKeyPairs(1);
+    const { publicKeys } = await generateKeyPairs(1);
     let newAccount = await root.getAccount(`new-account.${root.accountId}`);
     let doesNewAccountExist = await newAccount.exists();
     t.is(doesNewAccountExist, false);
 
     // Try to create an account with a FAK and limited access key (both with same public key)
     const res = await creator.callRaw(
-        root, 
-        'create_account_advanced', 
+        root,
+        'create_account_advanced',
         {
-            new_account_id: newAccount.accountId, 
+            new_account_id: newAccount.accountId,
             options: {
                 limited_access_keys: generateLimitedAccessKeyData(publicKeys, root.accountId, 'create_account_advanced'),
                 full_access_keys: publicKeys,

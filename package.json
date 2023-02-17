@@ -4,7 +4,8 @@
 	"license": "MIT",
 	"author": "Pagoda",
 	"scripts": {
-		"test": "ava __tests__/main.ava.ts"
+		"build": "./build.sh",
+		"test": "npm run build && ava __tests__/main.ava.ts"
 	},
 	"devDependencies": {
 		"@types/bn.js": "^5.1.0",
