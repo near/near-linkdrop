@@ -5,6 +5,9 @@ use near_sdk::{
     env, ext_contract, near_bindgen, PanicOnDefault, AccountId, Balance, Promise, PromiseResult, PublicKey, Gas,
 };
 
+mod models;
+use models::*;
+
 #[near_bindgen]
 #[derive(PanicOnDefault, BorshDeserialize, BorshSerialize)]
 pub struct LinkDrop {
@@ -148,7 +151,52 @@ impl LinkDrop {
             )
     }
 
-    /// Callback after executing `create_account`.
+    /// Create new account without linkdrop and deposit passed funds (used for creating sub accounts directly).
+    #[payable]
+    pub fn create_account_advanced(
+        &mut self,
+        new_account_id: AccountId,
+        options: CreateAccountOptions,
+    ) -> Promise {
+        let is_some_option = options.contract_bytes.is_some() || options.full_access_keys.is_some() || options.limited_access_keys.is_some();
+        assert!(is_some_option, "Cannot create account with no options. Please specify either contract bytes, full access keys, or limited access keys.");
+
+        let amount = env::attached_deposit();
+
+        // Initiate a new promise on the new account we're creating and transfer it any attached deposit
+        let mut promise = Promise::new(new_account_id).create_account().transfer(amount);
+        
+        // If there are any full access keys in the options, loop through and add them to the promise
+        if let Some(full_access_keys) = options.full_access_keys {
+            for key in full_access_keys {
+                promise = promise.add_full_access_key(key.clone());
+            }
+        }
+
+        // If there are any function call access keys in the options, loop through and add them to the promise
+        if let Some(limited_access_keys) = options.limited_access_keys {
+            for key_info in limited_access_keys {
+                promise = promise.add_access_key(key_info.public_key.clone(), key_info.allowance.0, key_info.receiver_id.clone(), key_info.method_names.clone());
+            }
+        }
+
+        // If there are any contract bytes, we should deploy the contract to the account
+        if let Some(bytes) = options.contract_bytes {
+            promise = promise.deploy_contract(bytes);
+        };
+
+        // Callback if anything went wrong, refund the predecessor for their attached deposit
+        promise.then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(ON_CREATE_ACCOUNT_CALLBACK_GAS)
+                .on_account_created(
+                    env::predecessor_account_id(),
+                    amount.into()
+                )
+        )
+    }
+
+    /// Callback after executing `create_account` or `create_account_advanced`.
     pub fn on_account_created(&mut self, predecessor_account_id: AccountId, amount: U128) -> bool {
         assert_eq!(
             env::predecessor_account_id(),
@@ -184,6 +232,16 @@ impl LinkDrop {
     /// Returns the balance associated with given key.
     pub fn get_key_balance(&self, key: PublicKey) -> U128 {
         self.accounts.get(&key.into()).expect("Key is missing").into()
+    }
+
+    /// Returns information associated with a given key.
+    /// Part of the linkdrop NEP
+    #[handle_result]
+    pub fn get_key_information(&self, key: PublicKey) -> Result<KeyInfo, &'static str> {
+        match self.accounts.get(&key) {
+            Some(balance) => Ok(KeyInfo { balance: U128(balance) }),
+            None => Err("Key is missing"),
+        }
     }
 }
 
@@ -419,5 +477,60 @@ mod tests {
             contract.accounts.get(&pk.into()).unwrap(),
             deposit + deposit + 1 - 2 * ACCESS_KEY_ALLOWANCE
         );
+    }
+
+    #[test]
+    fn test_create_advanced_account() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Create the public key to be used in the test
+        let pk: PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
+            .parse()
+            .unwrap();
+        // Default the deposit to an extremely small amount
+        let deposit = 1_000_000;
+
+        // Create options for the advanced account creation
+        let options: CreateAccountOptions = CreateAccountOptions {
+            full_access_keys: Some(vec![pk.clone()]),
+            limited_access_keys: Some(vec![LimitedAccessKey {
+                public_key: pk.clone(),
+                allowance: U128(100),
+                receiver_id: linkdrop(),
+                method_names: "send".to_string(),
+            }]),
+            contract_bytes: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec()),
+        };
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .context.clone()
+        );
+
+        // Create bob's account with the advanced options
+        contract.create_account_advanced(bob(), options);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_create_advanced_account_no_options() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Default the deposit to an extremely small amount
+        let deposit = 1_000_000;
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .context.clone()
+        );
+
+        // Create bob's account with the advanced options
+        contract.create_account_advanced(bob(), CreateAccountOptions { full_access_keys: None, limited_access_keys: None, contract_bytes: None });
     }
 }
