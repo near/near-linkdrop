@@ -18,7 +18,7 @@ pub struct LinkDrop {
 const ACCESS_KEY_ALLOWANCE: u128 = 1_000_000_000_000_000_000_000_000;
 
 /// Gas attached to the callback from account creation.
-pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas(20_000_000_000_000);
+pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas(13_000_000_000_000);
 
 /// Methods callable by the function call access key
 const ACCESS_KEY_METHOD_NAMES: &str = "claim,create_account_and_claim";
