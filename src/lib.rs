@@ -524,7 +524,7 @@ mod tests {
     }
 
     #[test]
-    fn test_create_advanced_account_with_base64_contract_string() {
+    fn test_create_advanced_account_with_base64_contract_byte_string() {
         // Create a new instance of the linkdrop contract
         let mut contract = LinkDrop::new();
 
