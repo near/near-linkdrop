@@ -34,5 +34,6 @@ pub struct LimitedAccessKey {
 pub struct CreateAccountOptions {
     pub full_access_keys: Option<Vec<PublicKey>>,
     pub limited_access_keys: Option<Vec<LimitedAccessKey>>,
-    pub contract_bytes: Option<Base64VecU8>,
+    pub contract_bytes: Option<Vec<u8>>,
+    pub contract_bytes_base64: Option<Base64VecU8>
 }

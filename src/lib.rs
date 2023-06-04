@@ -158,8 +158,11 @@ impl LinkDrop {
         new_account_id: AccountId,
         options: CreateAccountOptions,
     ) -> Promise {
-        let is_some_option = options.contract_bytes.is_some() || options.full_access_keys.is_some() || options.limited_access_keys.is_some();
+        let is_some_option = options.contract_bytes_base64.is_some() || options.contract_bytes.is_some() || options.full_access_keys.is_some() || options.limited_access_keys.is_some();
         assert!(is_some_option, "Cannot create account with no options. Please specify either contract bytes, full access keys, or limited access keys.");
+
+        let is_conflict_contract_bytes = options.contract_bytes_base64.is_some() && options.contract_bytes.is_some();
+        assert!(!is_conflict_contract_bytes, "Cannot give contract bytes and base64 contract byte string at the same time.");
 
         let amount = env::attached_deposit();
 
@@ -182,6 +185,11 @@ impl LinkDrop {
 
         // If there are any contract bytes, we should deploy the contract to the account
         if let Some(bytes) = options.contract_bytes {
+            promise = promise.deploy_contract(bytes);
+        };
+
+        // If there are any base 64 contract byte string, we should deploy the contract to the account
+        if let Some(bytes) = options.contract_bytes_base64 {
             promise = promise.deploy_contract(bytes.0);
         };
 
@@ -499,7 +507,36 @@ mod tests {
                 receiver_id: linkdrop(),
                 method_names: "send".to_string(),
             }]),
-            contract_bytes: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec().into()),
+            contract_bytes: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec()),
+            contract_bytes_base64: None
+        };
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .context.clone()
+        );
+
+        // Create bob's account with the advanced options
+        contract.create_account_advanced(bob(), options);
+    }
+
+    #[test]
+    fn test_create_advanced_account_with_base64_contract_string() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+
+        // Default the deposit to an extremely small amount
+        let deposit = 1_000_000;
+
+        // Create options for the advanced account creation
+        let options: CreateAccountOptions = CreateAccountOptions {
+            full_access_keys: None,
+            limited_access_keys: None,
+            contract_bytes: None,
+            contract_bytes_base64: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec().into()),
         };
 
         // Initialize the mocked blockchain
@@ -531,6 +568,31 @@ mod tests {
         );
 
         // Create bob's account with the advanced options
-        contract.create_account_advanced(bob(), CreateAccountOptions { full_access_keys: None, limited_access_keys: None, contract_bytes: None });
+        contract.create_account_advanced(bob(), CreateAccountOptions { full_access_keys: None, limited_access_keys: None, contract_bytes: None, contract_bytes_base64: None });
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_create_advanced_account_conflict_contract_bytes() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Default the deposit to an extremely small amount
+        let deposit = 1_000_000;
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .context.clone()
+        );
+
+        // Create bob's account with the advanced options
+        contract.create_account_advanced(bob(), CreateAccountOptions {
+            full_access_keys: None,
+            limited_access_keys: None,
+            contract_bytes: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec()),
+            contract_bytes_base64: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec().into())
+        });
     }
 }
