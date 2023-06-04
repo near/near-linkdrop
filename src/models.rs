@@ -1,3 +1,4 @@
+use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Serialize, Deserialize};
 
 use crate::*;
@@ -33,6 +34,5 @@ pub struct LimitedAccessKey {
 pub struct CreateAccountOptions {
     pub full_access_keys: Option<Vec<PublicKey>>,
     pub limited_access_keys: Option<Vec<LimitedAccessKey>>,
-    pub contract_bytes: Option<Vec<u8>>,
+    pub contract_bytes: Option<Base64VecU8>,
 }
-    

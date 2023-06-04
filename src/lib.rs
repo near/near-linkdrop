@@ -182,7 +182,7 @@ impl LinkDrop {
 
         // If there are any contract bytes, we should deploy the contract to the account
         if let Some(bytes) = options.contract_bytes {
-            promise = promise.deploy_contract(bytes);
+            promise = promise.deploy_contract(bytes.0);
         };
 
         // Callback if anything went wrong, refund the predecessor for their attached deposit
@@ -499,7 +499,7 @@ mod tests {
                 receiver_id: linkdrop(),
                 method_names: "send".to_string(),
             }]),
-            contract_bytes: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec()),
+            contract_bytes: Some(include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec().into()),
         };
 
         // Initialize the mocked blockchain
