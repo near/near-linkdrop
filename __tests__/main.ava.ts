@@ -204,7 +204,11 @@ test("Add 2 types of access keys with same public key", async (t) => {
   );
 
   // Check for any failures (should be 1 due to adding a key that already exists)
-  const errors = displayFailureLog(res);
+  const errors = res.result.receipts_outcome.flatMap((receipt) => {
+    const errorKind = (receipt.outcome.status as any).Failure?.ActionError
+      ?.kind;
+    return errorKind ? [errorKind] : [];
+  });
   t.is(errors.length, 1);
   t.is(errors[0].hasOwnProperty("AddKeyAlreadyExists"), true);
 
