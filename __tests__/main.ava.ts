@@ -21,7 +21,7 @@ test.beforeEach(async (t) => {
   const root = worker.rootAccount;
 
   // Deploy the linkdrop contract and initialize it
-  await root.deploy(`./res/linkdrop.wasm`);
+  await root.deploy(`./target/near/linkdrop.wasm`);
   await root.call(root, "new", {});
 
   // // Test users

@@ -21,28 +21,22 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
     
-    - name: Build contract and verify reproducibility
+    - name: Build contract
       run: |
-        # Save the original WASM for comparison
-        cp res/linkdrop.wasm res/linkdrop.wasm.original
-        
-        # Run the build script
+        # Run the build script to create the WASM
         ./build.sh
-        
-        # Compare the built WASM with the committed one
-        if ! cmp -s res/linkdrop.wasm res/linkdrop.wasm.original; then
-          echo "❌ ERROR: Built WASM differs from committed WASM!"
-          echo "The WASM file in res/linkdrop.wasm must be built using ./build.sh"
-          echo "Please run ./build.sh locally and commit the resulting res/linkdrop.wasm"
-          echo ""
-          echo "Checksums:"
-          echo "Original: $(sha256sum res/linkdrop.wasm.original)"
-          echo "Built:    $(sha256sum res/linkdrop.wasm)"
-          exit 1
-        else
-          echo "✅ WASM reproducibility check passed!"
-          echo "Checksum: $(sha256sum res/linkdrop.wasm)"
-        fi
+        echo "✅ Contract built successfully!"
+        echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
+        echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
+    
+    - name: Upload WASM artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linkdrop-contract
+        path: |
+          target/near/linkdrop.wasm
+          target/near/linkdrop_abi.json
+        retention-days: 30
     
     - name: Use Node.js 22.x
       uses: actions/setup-node@v4

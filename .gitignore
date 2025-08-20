@@ -2,3 +2,4 @@
 target/
 neardev
 node_modules
+res/linkdrop.wasm
