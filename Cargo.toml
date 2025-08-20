@@ -4,6 +4,7 @@ version = "0.1.1"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2024"
 publish = false
+repository = "https://github.com/near/near-linkdrop"
 
 [lib]
 crate-type = ["cdylib"]
