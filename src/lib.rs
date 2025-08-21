@@ -155,7 +155,9 @@ impl LinkDrop {
         let is_some_option = options.contract_bytes_base64.is_some()
             || options.contract_bytes.is_some()
             || options.full_access_keys.is_some()
-            || options.limited_access_keys.is_some();
+            || options.limited_access_keys.is_some()
+            || options.global_contract_account_id.is_some()
+            || options.global_contract_hash.is_some();
         assert!(
             is_some_option,
             "Cannot create account with no options. Please specify either contract bytes, full access keys, or limited access keys."
@@ -166,6 +168,20 @@ impl LinkDrop {
         assert!(
             !is_conflict_contract_bytes,
             "Cannot give contract bytes and base64 contract byte string at the same time."
+        );
+
+        let is_conflict_global_contract =
+            options.global_contract_account_id.is_some() && options.global_contract_hash.is_some();
+        assert!(
+            !is_conflict_global_contract,
+            "Cannot specify both global contract account ID and global contract hash at the same time."
+        );
+
+        let has_regular_contract = options.contract_bytes_base64.is_some() || options.contract_bytes.is_some();
+        let has_global_contract = options.global_contract_account_id.is_some() || options.global_contract_hash.is_some();
+        assert!(
+            !(has_regular_contract && has_global_contract),
+            "Cannot specify both regular contract deployment and global contract usage at the same time."
         );
 
         let amount = env::attached_deposit();
@@ -209,6 +225,16 @@ impl LinkDrop {
         // If there are any base 64 contract byte string, we should deploy the contract to the account
         if let Some(bytes) = options.contract_bytes_base64 {
             promise = promise.deploy_contract(bytes.0);
+        };
+
+        // If there is a global contract hash, use the global contract by hash
+        if let Some(hash) = options.global_contract_hash {
+            promise = promise.use_global_contract(hash);
+        };
+
+        // If there is a global contract account ID, use the global contract by account ID
+        if let Some(account_id) = options.global_contract_account_id {
+            promise = promise.use_global_contract_by_account_id(account_id);
         };
 
         // Callback if anything went wrong, refund the predecessor for their attached deposit
@@ -544,6 +570,8 @@ mod tests {
                 include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec(),
             ),
             contract_bytes_base64: None,
+            global_contract_account_id: None,
+            global_contract_hash: None,
         };
 
         // Initialize the mocked blockchain
@@ -577,6 +605,8 @@ mod tests {
                     .to_vec()
                     .into(),
             ),
+            global_contract_account_id: None,
+            global_contract_hash: None,
         };
 
         // Initialize the mocked blockchain
@@ -617,6 +647,8 @@ mod tests {
                 limited_access_keys: None,
                 contract_bytes: None,
                 contract_bytes_base64: None,
+                global_contract_account_id: None,
+                global_contract_hash: None,
             },
         );
     }
@@ -653,6 +685,145 @@ mod tests {
                         .to_vec()
                         .into(),
                 ),
+                global_contract_account_id: None,
+                global_contract_hash: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_create_advanced_account_with_global_contract_by_account_id() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Create the public key to be used in the test
+        let pk: PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
+            .parse()
+            .unwrap();
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Create options for the advanced account creation using global contract by account ID
+        let options: CreateAccountOptions = CreateAccountOptions {
+            full_access_keys: Some(vec![pk.clone()]),
+            limited_access_keys: None,
+            contract_bytes: None,
+            contract_bytes_base64: None,
+            global_contract_account_id: Some("treasury-web4-global.near".parse().unwrap()),
+            global_contract_hash: None,
+        };
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Create bob's account with the global contract
+        contract.create_account_advanced(bob(), options);
+    }
+
+    #[test]
+    fn test_create_advanced_account_with_global_contract_by_hash() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Create the public key to be used in the test
+        let pk: PublicKey = "qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
+            .parse()
+            .unwrap();
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Mock global contract hash (32 bytes)
+        let global_hash = vec![0u8; 32];
+
+        // Create options for the advanced account creation using global contract by hash
+        let options: CreateAccountOptions = CreateAccountOptions {
+            full_access_keys: Some(vec![pk.clone()]),
+            limited_access_keys: None,
+            contract_bytes: None,
+            contract_bytes_base64: None,
+            global_contract_account_id: None,
+            global_contract_hash: Some(global_hash),
+        };
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Create bob's account with the global contract
+        contract.create_account_advanced(bob(), options);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Cannot specify both global contract account ID and global contract hash at the same time."
+    )]
+    fn test_create_advanced_account_conflict_global_contract_options() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Try to create account with both global contract options (should panic)
+        contract.create_account_advanced(
+            bob(),
+            CreateAccountOptions {
+                full_access_keys: None,
+                limited_access_keys: None,
+                contract_bytes: None,
+                contract_bytes_base64: None,
+                global_contract_account_id: Some("treasury-web4-global.near".parse().unwrap()),
+                global_contract_hash: Some(vec![0u8; 32]),
+            },
+        );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Cannot specify both regular contract deployment and global contract usage at the same time."
+    )]
+    fn test_create_advanced_account_conflict_regular_and_global_contract() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Try to create account with both regular contract and global contract (should panic)
+        contract.create_account_advanced(
+            bob(),
+            CreateAccountOptions {
+                full_access_keys: None,
+                limited_access_keys: None,
+                contract_bytes: Some(vec![1, 2, 3, 4]),
+                contract_bytes_base64: None,
+                global_contract_account_id: Some("treasury-web4-global.near".parse().unwrap()),
+                global_contract_hash: None,
             },
         );
     }
