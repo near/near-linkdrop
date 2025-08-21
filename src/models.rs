@@ -1,5 +1,5 @@
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::near;
+use near_sdk::{CryptoHash, near};
 
 use crate::*;
 
@@ -32,4 +32,6 @@ pub struct CreateAccountOptions {
     pub limited_access_keys: Option<Vec<LimitedAccessKey>>,
     pub contract_bytes: Option<Vec<u8>>,
     pub contract_bytes_base64: Option<Base64VecU8>,
+    pub global_contract_hash: Option<CryptoHash>,
+    pub global_contract_account_id: Option<AccountId>,
 }
