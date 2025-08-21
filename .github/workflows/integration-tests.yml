@@ -16,6 +16,28 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Install cargo-near
+      run: |
+        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
+    
+    - name: Build contract
+      run: |
+        # Run the build script to create the WASM
+        ./build.sh
+        echo "✅ Contract built successfully!"
+        echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
+        echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
+    
+    - name: Upload WASM artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linkdrop-contract
+        path: |
+          target/near/linkdrop.wasm
+          target/near/linkdrop_abi.json
+        retention-days: 30
+    
     - name: Use Node.js 22.x
       uses: actions/setup-node@v4
       with:
