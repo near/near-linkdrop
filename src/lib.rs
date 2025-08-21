@@ -185,11 +185,16 @@ impl LinkDrop {
         // If there are any function call access keys in the options, loop through and add them to the promise
         if let Some(limited_access_keys) = options.limited_access_keys {
             for key_info in limited_access_keys {
-                promise = promise.add_access_key_allowance(
-                    key_info.public_key.clone(),
+                let allowance = if key_info.allowance.as_yoctonear() == 0 {
+                    Allowance::Unlimited
+                } else {
                     Allowance::Limited(
                         NonZeroU128::new(key_info.allowance.as_yoctonear()).unwrap(),
-                    ),
+                    )
+                };
+                promise = promise.add_access_key_allowance(
+                    key_info.public_key.clone(),
+                    allowance,
                     key_info.receiver_id.clone(),
                     key_info.method_names.clone(),
                 );
