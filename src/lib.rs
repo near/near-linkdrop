@@ -188,9 +188,7 @@ impl LinkDrop {
                 let allowance = if key_info.allowance.as_yoctonear() == 0 {
                     Allowance::Unlimited
                 } else {
-                    Allowance::Limited(
-                        NonZeroU128::new(key_info.allowance.as_yoctonear()).unwrap(),
-                    )
+                    Allowance::Limited(NonZeroU128::new(key_info.allowance.as_yoctonear()).unwrap())
                 };
                 promise = promise.add_access_key_allowance(
                     key_info.public_key.clone(),
