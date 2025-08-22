@@ -1,5 +1,5 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+# This workflow builds the NEAR smart contract and runs both unit and integration tests using Rust
+# The tests use near-sandbox and near-api for comprehensive testing
 
 name: Integration Tests
 
@@ -10,12 +10,18 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build:
+  build-and-test:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Setup Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
     
     - name: Install cargo-near
       run: |
@@ -29,6 +35,24 @@ jobs:
         echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
         echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
     
+    - name: Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        cargo test --lib --verbose
+        echo "✅ Unit tests passed!"
+    
+    - name: Run integration tests
+      run: |
+        echo "🧪 Running integration tests..."
+        cargo test --test integration_tests --verbose
+        echo "✅ Integration tests passed!"
+    
+    - name: Run all tests
+      run: |
+        echo "🧪 Running all tests together..."
+        cargo test --verbose
+        echo "✅ All tests passed!"
+    
     - name: Upload WASM artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -37,11 +61,3 @@ jobs:
           target/near/linkdrop.wasm
           target/near/linkdrop_abi.json
         retention-days: 30
-    
-    - name: Use Node.js 22.x
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22.x
-        cache: 'npm'
-    - run: npm ci
-    - run: npm test
