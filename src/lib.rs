@@ -152,8 +152,6 @@ impl LinkDrop {
             || options.contract_bytes.is_some()
             || options.full_access_keys.is_some()
             || options.limited_access_keys.is_some()
-            || options.global_contract_code.is_some()
-            || options.global_contract_code_by_account_id.is_some()
             || options.use_global_contract_hash.is_some()
             || options.use_global_contract_account_id.is_some();
         assert!(
@@ -165,15 +163,13 @@ impl LinkDrop {
         let contract_options_count = [
             options.contract_bytes.is_some(),
             options.contract_bytes_base64.is_some(),
-            options.global_contract_code.is_some(),
-            options.global_contract_code_by_account_id.is_some(),
             options.use_global_contract_hash.is_some(),
             options.use_global_contract_account_id.is_some(),
         ].iter().filter(|&&x| x).count();
         
         assert!(
             contract_options_count <= 1,
-            "Cannot specify multiple contract deployment options. Choose only one: contract_bytes, contract_bytes_base64, global_contract_code, global_contract_code_by_account_id, use_global_contract_hash, or use_global_contract_account_id."
+            "Cannot specify multiple contract deployment options. Choose only one: contract_bytes, contract_bytes_base64, use_global_contract_hash, or use_global_contract_account_id."
         );
 
         let amount = env::attached_deposit();
@@ -215,16 +211,6 @@ impl LinkDrop {
         // If there are any base 64 contract byte string, we should deploy the contract to the account
         if let Some(bytes) = options.contract_bytes_base64 {
             promise = promise.deploy_contract(bytes.0);
-        };
-
-        // If there are any global contract code, deploy it as a global contract
-        if let Some(code) = options.global_contract_code {
-            promise = promise.deploy_global_contract(code);
-        };
-
-        // If there are any global contract code by account ID, deploy it as a global contract by account ID
-        if let Some(code) = options.global_contract_code_by_account_id {
-            promise = promise.deploy_global_contract_by_account_id(code);
         };
 
         // If there's a global contract hash, use the existing global contract

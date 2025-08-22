@@ -32,10 +32,6 @@ pub struct CreateAccountOptions {
     pub limited_access_keys: Option<Vec<LimitedAccessKey>>,
     pub contract_bytes: Option<Vec<u8>>,
     pub contract_bytes_base64: Option<Base64VecU8>,
-    /// Deploy a global smart contract using the provided contract code.
-    pub global_contract_code: Option<Vec<u8>>,
-    /// Deploy a global smart contract, identifiable by the predecessor's account ID.
-    pub global_contract_code_by_account_id: Option<Vec<u8>>,
     /// Use an existing global contract by code hash (32-byte hash).
     pub use_global_contract_hash: Option<Vec<u8>>,
     /// Use an existing global contract by referencing the account that deployed it.
