@@ -539,7 +539,7 @@ mod tests {
                 method_names: "send".to_string(),
             }]),
             contract_bytes: Some(
-                include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm").to_vec(),
+                include_bytes!("../target/near/linkdrop.wasm").to_vec(),
             ),
             contract_bytes_base64: None,
         };
@@ -571,7 +571,7 @@ mod tests {
             limited_access_keys: None,
             contract_bytes: None,
             contract_bytes_base64: Some(
-                include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm")
+                include_bytes!("../target/near/linkdrop.wasm")
                     .to_vec()
                     .into(),
             ),
@@ -643,11 +643,11 @@ mod tests {
                 full_access_keys: None,
                 limited_access_keys: None,
                 contract_bytes: Some(
-                    include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm")
+                    include_bytes!("../target/near/linkdrop.wasm")
                         .to_vec(),
                 ),
                 contract_bytes_base64: Some(
-                    include_bytes!("../target/wasm32-unknown-unknown/release/linkdrop.wasm")
+                    include_bytes!("../target/near/linkdrop.wasm")
                         .to_vec()
                         .into(),
                 ),
