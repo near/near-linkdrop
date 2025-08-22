@@ -29,15 +29,11 @@ jobs:
     
     - name: Build contract
       run: |
-        echo "🔨 Building contract with cargo-near..."
-        # Build the WASM contract first (required for clippy and integration tests)
-        cargo near build non-reproducible-wasm
+        # Run the build script to create the WASM
+        ./build.sh
         echo "✅ Contract built successfully!"
-        echo "WASM location: $(ls -la target/near/linkdrop.wasm)"
         echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
-        if [ -f target/near/linkdrop_abi.json ]; then
-          echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
-        fi
+        echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
     
     - name: Run clippy lints
       run: |
