@@ -27,6 +27,18 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
     
+    - name: Check code formatting
+      run: |
+        echo "🎨 Checking code formatting..."
+        cargo fmt --all -- --check
+        echo "✅ Code formatting check passed!"
+    
+    - name: Run clippy lints
+      run: |
+        echo "📋 Running clippy lints..."
+        cargo clippy --all-targets --all-features -- -D warnings
+        echo "✅ Clippy checks passed!"
+    
     - name: Build contract
       run: |
         # Run the build script to create the WASM
