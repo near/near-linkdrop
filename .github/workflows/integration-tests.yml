@@ -38,6 +38,7 @@ jobs:
     - name: Run clippy lints
       run: |
         echo "📋 Running clippy lints..."
+        rustup component add clippy
         cargo clippy --all-features --workspace --tests -- --warn clippy::all --warn clippy::nursery
         echo "✅ Clippy checks passed!"
     
