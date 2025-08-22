@@ -53,21 +53,9 @@ jobs:
         echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
         echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
     
-    - name: Run unit tests
+    - name: Run tests
       run: |
-        echo "🧪 Running unit tests..."
-        cargo test --lib --verbose
-        echo "✅ Unit tests passed!"
-    
-    - name: Run integration tests
-      run: |
-        echo "🧪 Running integration tests..."
-        cargo test --test integration_tests --verbose
-        echo "✅ Integration tests passed!"
-    
-    - name: Run all tests
-      run: |
-        echo "🧪 Running all tests together..."
+        echo "🧪 Running all tests (unit + integration)..."
         cargo test --verbose
         echo "✅ All tests passed!"
     
