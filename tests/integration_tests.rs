@@ -1,8 +1,8 @@
 use anyhow::Result;
 use near_api::near_primitives;
 use near_api::{
-    Account, AccountId, Contract, NearGas, NearToken, NetworkConfig, RPCEndpoint, Signer, Tokens,
-    signer,
+    signer, Account, AccountId, Contract, NearGas, NearToken, NetworkConfig, RPCEndpoint, Signer,
+    Tokens,
 };
 use near_sandbox::{GenesisAccount, Sandbox};
 use serde_json::json;
@@ -314,13 +314,10 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
     if let Ok(res) = &result {
         // The transaction succeeds but one of the receipts will fail
         let has_add_key_error = res.receipts_outcome.iter().any(|receipt| {
-            if let near_primitives::views::ExecutionStatusView::Failure(_) = &receipt.outcome.status
-            {
-                // We found a failure, which indicates the duplicate key was detected
-                true
-            } else {
-                false
-            }
+            matches!(
+                &receipt.outcome.status,
+                near_primitives::views::ExecutionStatusView::Failure(_)
+            )
         });
         assert!(
             has_add_key_error,
@@ -359,3 +356,4 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
 
     Ok(())
 }
+
