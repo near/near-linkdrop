@@ -92,7 +92,7 @@ fn generate_limited_access_key_data(
         .collect()
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
     let (_sandbox, network, root_id, _root_signer, creator_id, creator_signer) =
         setup_sandbox().await?;
@@ -101,11 +101,11 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
     let new_account_id: AccountId = format!("test1.{}", root_id).parse()?;
 
     // Check that the new account doesn't exist yet (will fail if exists)
-    let account_check = Tokens::account(new_account_id.clone())
+    Tokens::account(new_account_id.clone())
         .near_balance()
         .fetch_from(&network)
-        .await;
-    assert!(account_check.is_err(), "Account should not exist yet");
+        .await
+        .expect_err("Account should not exist yet");
 
     let limited_access_keys = &public_keys[0..5];
     let full_access_keys = &public_keys[5..10];
@@ -147,24 +147,23 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
     let account_balance = Tokens::account(new_account_id.clone())
         .near_balance()
         .fetch_from(&network)
-        .await;
-    assert!(account_balance.is_ok(), "Account should exist now");
+        .await
+        .expect("Account should exist now");
 
     // Check balance
-    let balance = account_balance.unwrap();
     assert!(
-        balance.total <= NearToken::from_near(2),
+        account_balance.total <= NearToken::from_near(2),
         "Balance should be <= 2 NEAR"
     );
     assert!(
-        balance.total >= NearToken::from_millinear(1900),
+        account_balance.total >= NearToken::from_millinear(1900),
         "Balance should be >= 1.9 NEAR"
     );
 
     Ok(())
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn test_deploy_nft_contract_without_keys() -> Result<()> {
     let (_sandbox, network, root_id, _root_signer, creator_id, creator_signer) =
         setup_sandbox().await?;
@@ -172,11 +171,11 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
     let new_account_id: AccountId = format!("test2.{}", root_id).parse()?;
 
     // Check that the new account doesn't exist yet
-    let account_check = Tokens::account(new_account_id.clone())
+    Tokens::account(new_account_id.clone())
         .near_balance()
         .fetch_from(&network)
-        .await;
-    assert!(account_check.is_err(), "Account should not exist yet");
+        .await
+        .expect_err("Account should not exist yet");
 
     // Deploy NFT tutorial contract (same as original TypeScript test)
     let contract_bytes: Vec<u8> = NFT_TUTORIAL_WASM.to_vec();
@@ -205,14 +204,14 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
         near_primitives::views::ExecutionStatusView::SuccessValue(_)
             | near_primitives::views::ExecutionStatusView::SuccessReceiptId(_)
     );
-    assert!(success, "Transaction should succeed");
+    assert!(success, "Transaction should succeed: {:?}", result);
 
-    // Verify the new account exists and has code
-    let account_balance = Tokens::account(new_account_id.clone())
+    // Verify the new account exists
+    Tokens::account(new_account_id.clone())
         .near_balance()
         .fetch_from(&network)
-        .await;
-    assert!(account_balance.is_ok(), "Account should exist now");
+        .await
+        .expect("Account should exist now");
 
     // Initialize the NFT contract with default metadata
     Contract(new_account_id.clone())
@@ -269,7 +268,7 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
     let (_sandbox, network, root_id, _root_signer, creator_id, creator_signer) =
         setup_sandbox().await?;
@@ -278,11 +277,11 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
     let new_account_id: AccountId = format!("test3.{}", root_id).parse()?;
 
     // Check that the new account doesn't exist yet
-    let account_check = Tokens::account(new_account_id.clone())
+    Tokens::account(new_account_id.clone())
         .near_balance()
         .fetch_from(&network)
-        .await;
-    assert!(account_check.is_err(), "Account should not exist yet");
+        .await
+        .expect_err("Account should not exist yet");
 
     let creator_balance_before = Tokens::account(creator_id.clone())
         .near_balance()
@@ -329,11 +328,11 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
     }
 
     // Verify the account was not created
-    let account_check = Tokens::account(new_account_id.clone())
+    Tokens::account(new_account_id.clone())
         .near_balance()
         .fetch_from(&network)
-        .await;
-    assert!(account_check.is_err(), "Account should not be created");
+        .await
+        .expect_err("Account should not be created");
 
     // Check that money was refunded to creator
     let creator_balance_after = Tokens::account(creator_id.clone())
@@ -342,15 +341,13 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
         .await?;
 
     // Calculate the difference (should be minimal, just gas fees)
-    let balance_diff = if creator_balance_before.total > creator_balance_after.total {
-        creator_balance_before.total.as_yoctonear() - creator_balance_after.total.as_yoctonear()
-    } else {
-        0
-    };
+    let balance_diff = creator_balance_before
+        .total
+        .saturating_sub(creator_balance_after.total);
 
     // Should only lose gas fees (less than 0.01 NEAR)
     assert!(
-        balance_diff < NearToken::from_millinear(10).as_yoctonear(),
+        balance_diff < NearToken::from_millinear(10),
         "Creator should get refund minus gas fees"
     );
 

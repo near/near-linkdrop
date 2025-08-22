@@ -29,10 +29,7 @@ fn is_promise_success() -> bool {
         1,
         "Contract expected a result on the callback"
     );
-    match env::promise_result(0) {
-        PromiseResult::Successful(_) => true,
-        _ => false,
-    }
+    matches!(env::promise_result(0), PromiseResult::Successful(_))
 }
 
 #[near]
@@ -53,20 +50,19 @@ impl LinkDrop {
             env::attached_deposit() > ACCESS_KEY_ALLOWANCE,
             "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE"
         );
-        let pk = public_key.into();
         let value = self
             .accounts
-            .get(&pk)
+            .get(&public_key)
             .cloned()
             .unwrap_or(NearToken::from_near(0));
         self.accounts.insert(
-            pk.clone(),
+            public_key.clone(),
             value
                 .saturating_add(env::attached_deposit())
                 .saturating_sub(ACCESS_KEY_ALLOWANCE),
         );
         Promise::new(env::current_account_id()).add_access_key_allowance(
-            pk,
+            public_key,
             Allowance::Limited(NonZeroU128::new(ACCESS_KEY_ALLOWANCE.as_yoctonear()).unwrap()),
             env::current_account_id(),
             ACCESS_KEY_METHOD_NAMES.to_string(),
@@ -113,7 +109,7 @@ impl LinkDrop {
             .expect("Unexpected public key");
         Promise::new(new_account_id)
             .create_account()
-            .add_full_access_key(new_public_key.into())
+            .add_full_access_key(new_public_key)
             .transfer(amount)
             .then(
                 Self::ext(env::current_account_id())
@@ -136,7 +132,7 @@ impl LinkDrop {
         let amount = env::attached_deposit();
         Promise::new(new_account_id)
             .create_account()
-            .add_full_access_key(new_public_key.into())
+            .add_full_access_key(new_public_key)
             .transfer(amount)
             .then(
                 Self::ext(env::current_account_id())
@@ -255,7 +251,7 @@ impl LinkDrop {
 
     /// Returns the balance associated with given key.
     pub fn get_key_balance(&self, key: PublicKey) -> NearToken {
-        *self.accounts.get(&key.into()).expect("Key is missing")
+        *self.accounts.get(&key).expect("Key is missing")
     }
 
     /// Returns information associated with a given key.
@@ -414,7 +410,7 @@ mod tests {
             VMContextBuilder::new()
                 .current_account_id(linkdrop())
                 .predecessor_account_id(linkdrop())
-                .signer_account_pk(pk.into())
+                .signer_account_pk(pk)
                 .account_balance(deposit)
                 .context
                 .clone()
@@ -456,7 +452,7 @@ mod tests {
             VMContextBuilder::new()
                 .current_account_id(linkdrop())
                 .predecessor_account_id(linkdrop())
-                .signer_account_pk(pk.into())
+                .signer_account_pk(pk)
                 .account_balance(deposit)
                 .context
                 .clone()
@@ -510,7 +506,7 @@ mod tests {
         // Attempt to recreate the same linkdrop twice
         contract.send(pk.clone());
         assert_eq!(
-            *contract.accounts.get(&pk.into()).unwrap(),
+            *contract.accounts.get(&pk).unwrap(),
             NearToken::from_yoctonear(
                 deposit.as_yoctonear() + deposit.as_yoctonear() + 1
                     - 2 * ACCESS_KEY_ALLOWANCE.as_yoctonear()
