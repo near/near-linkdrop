@@ -1,0 +1,63 @@
+# This workflow builds the NEAR smart contract and runs both unit and integration tests using Rust
+# The tests use near-sandbox and near-api for comprehensive testing
+
+name: Test
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libudev-dev
+    
+    - name: Install cargo-near
+      run: |
+        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
+    
+    - name: Check code formatting
+      run: |
+        echo "🎨 Checking code formatting..."
+        cargo fmt --all -- --check
+        echo "✅ Code formatting check passed!"
+    
+    - name: Build contract
+      run: |
+        # Run the build script to create the WASM
+        ./build.sh
+        echo "✅ Contract built successfully!"
+        echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
+        echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
+    
+    - name: Run clippy lints
+      run: |
+        echo "📋 Running clippy lints..."
+        rustup component add clippy
+        cargo clippy --all-features --workspace --tests -- --warn clippy::all --warn clippy::nursery
+        echo "✅ Clippy checks passed!"
+    
+    - name: Run tests
+      run: |
+        echo "🧪 Running all tests (unit + integration)..."
+        cargo test --verbose
+        echo "✅ All tests passed!"
+    
+    - name: Upload WASM artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linkdrop-contract
+        path: |
+          target/near/linkdrop.wasm
+          target/near/linkdrop_abi.json
+        retention-days: 30
