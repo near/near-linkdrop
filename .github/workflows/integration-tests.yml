@@ -17,12 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        components: rustfmt, clippy
-    
     - name: Install cargo-near
       run: |
         curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
@@ -48,7 +42,6 @@ jobs:
     - name: Run clippy lints
       run: |
         echo "📋 Running clippy lints..."
-        rustup component add clippy
         cargo clippy --all-features --workspace --tests -- --warn clippy::all --warn clippy::nursery
         echo "✅ Clippy checks passed!"
     
