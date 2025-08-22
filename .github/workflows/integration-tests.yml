@@ -33,6 +33,18 @@ jobs:
         cargo fmt --all -- --check
         echo "✅ Code formatting check passed!"
     
+    - name: Build contract
+      run: |
+        echo "🔨 Building contract with cargo-near..."
+        # Build the WASM contract first (required for clippy and integration tests)
+        cargo near build non-reproducible-wasm
+        echo "✅ Contract built successfully!"
+        echo "WASM location: $(ls -la target/near/linkdrop.wasm)"
+        echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
+        if [ -f target/near/linkdrop_abi.json ]; then
+          echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
+        fi
+    
     - name: Run clippy lints
       run: |
         echo "📋 Running clippy lints..."
@@ -44,14 +56,6 @@ jobs:
           -A clippy::match_like_matches_macro \
           -A clippy::useless_conversion
         echo "✅ Clippy checks passed!"
-    
-    - name: Build contract
-      run: |
-        # Run the build script to create the WASM
-        ./build.sh
-        echo "✅ Contract built successfully!"
-        echo "WASM checksum: $(sha256sum target/near/linkdrop.wasm)"
-        echo "ABI checksum: $(sha256sum target/near/linkdrop_abi.json)"
     
     - name: Run tests
       run: |
