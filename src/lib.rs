@@ -554,8 +554,6 @@ mod tests {
             }]),
             contract_bytes: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
             contract_bytes_base64: None,
-            global_contract_code: None,
-            global_contract_code_by_account_id: None,
             use_global_contract_hash: None,
             use_global_contract_account_id: None,
         };
@@ -591,8 +589,6 @@ mod tests {
                     .to_vec()
                     .into(),
             ),
-            global_contract_code: None,
-            global_contract_code_by_account_id: None,
             use_global_contract_hash: None,
             use_global_contract_account_id: None,
         };
@@ -635,8 +631,6 @@ mod tests {
                 limited_access_keys: None,
                 contract_bytes: None,
                 contract_bytes_base64: None,
-                global_contract_code: None,
-                global_contract_code_by_account_id: None,
                 use_global_contract_hash: None,
                 use_global_contract_account_id: None,
             },
@@ -672,78 +666,10 @@ mod tests {
                         .to_vec()
                         .into(),
                 ),
-                global_contract_code: None,
-                global_contract_code_by_account_id: None,
                 use_global_contract_hash: None,
                 use_global_contract_account_id: None,
             },
         );
-    }
-
-    #[test]
-    fn test_create_advanced_account_with_global_contract_code() {
-        // Create a new instance of the linkdrop contract
-        let mut contract = LinkDrop::new();
-
-        // Default the deposit to an extremely small amount
-        let deposit = NearToken::from_yoctonear(1_000_000);
-
-        // Create options for the advanced account creation with global contract code
-        let options: CreateAccountOptions = CreateAccountOptions {
-            full_access_keys: None,
-            limited_access_keys: None,
-            contract_bytes: None,
-            contract_bytes_base64: None,
-            global_contract_code: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
-            global_contract_code_by_account_id: None,
-            use_global_contract_hash: None,
-            use_global_contract_account_id: None,
-        };
-
-        // Initialize the mocked blockchain
-        testing_env!(
-            VMContextBuilder::new()
-                .current_account_id(linkdrop())
-                .attached_deposit(deposit)
-                .context
-                .clone()
-        );
-
-        // Create bob's account with the advanced options
-        contract.create_account_advanced(bob(), options);
-    }
-
-    #[test]
-    fn test_create_advanced_account_with_global_contract_code_by_account_id() {
-        // Create a new instance of the linkdrop contract
-        let mut contract = LinkDrop::new();
-
-        // Default the deposit to an extremely small amount
-        let deposit = NearToken::from_yoctonear(1_000_000);
-
-        // Create options for the advanced account creation with global contract code by account ID
-        let options: CreateAccountOptions = CreateAccountOptions {
-            full_access_keys: None,
-            limited_access_keys: None,
-            contract_bytes: None,
-            contract_bytes_base64: None,
-            global_contract_code: None,
-            global_contract_code_by_account_id: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
-            use_global_contract_hash: None,
-            use_global_contract_account_id: None,
-        };
-
-        // Initialize the mocked blockchain
-        testing_env!(
-            VMContextBuilder::new()
-                .current_account_id(linkdrop())
-                .attached_deposit(deposit)
-                .context
-                .clone()
-        );
-
-        // Create bob's account with the advanced options
-        contract.create_account_advanced(bob(), options);
     }
 
     #[test]
@@ -763,8 +689,6 @@ mod tests {
             limited_access_keys: None,
             contract_bytes: None,
             contract_bytes_base64: None,
-            global_contract_code: None,
-            global_contract_code_by_account_id: None,
             use_global_contract_hash: Some(code_hash),
             use_global_contract_account_id: None,
         };
@@ -796,8 +720,6 @@ mod tests {
             limited_access_keys: None,
             contract_bytes: None,
             contract_bytes_base64: None,
-            global_contract_code: None,
-            global_contract_code_by_account_id: None,
             use_global_contract_hash: None,
             use_global_contract_account_id: Some("deployer.near".parse().unwrap()),
         };
@@ -840,8 +762,6 @@ mod tests {
                 limited_access_keys: None,
                 contract_bytes: None,
                 contract_bytes_base64: None,
-                global_contract_code: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
-                global_contract_code_by_account_id: None,
                 use_global_contract_hash: Some(vec![1u8; 32]),
                 use_global_contract_account_id: None,
             },
@@ -873,8 +793,6 @@ mod tests {
                 limited_access_keys: None,
                 contract_bytes: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
                 contract_bytes_base64: None,
-                global_contract_code: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
-                global_contract_code_by_account_id: None,
                 use_global_contract_hash: None,
                 use_global_contract_account_id: None,
             },
