@@ -48,13 +48,8 @@ jobs:
     - name: Run clippy lints
       run: |
         echo "📋 Running clippy lints..."
-        # Allow deprecated warnings for UnorderedMap (migration would break existing contracts)
-        # Allow match_like_matches_macro and useless_conversion warnings in existing code
-        cargo clippy --all-targets --all-features -- \
-          -D warnings \
-          -A deprecated \
-          -A clippy::match_like_matches_macro \
-          -A clippy::useless_conversion
+        rustup component add clippy
+        cargo clippy --all-features --workspace --tests -- --warn clippy::all --warn clippy::nursery
         echo "✅ Clippy checks passed!"
     
     - name: Run tests
