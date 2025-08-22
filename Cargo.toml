@@ -15,7 +15,7 @@ near-sdk = { version = "5.17.0", features = ["global-contracts"] }
 [dev-dependencies]
 near-sdk = { version = "5.14", features = ["unit-testing"] }
 near-sandbox = "0.2.0"
-near-api = "0.6.1"
+near-api = { version = "0.6.1", default-features = false }
 test-log = {version = "0.2", default-features = false, features = ["trace"]}
 tokio = { version = "1.12.0", features = ["full"] }
 serde_json = "1"

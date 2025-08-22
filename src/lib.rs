@@ -1,7 +1,7 @@
 use near_sdk::store::UnorderedMap;
 use near_sdk::{
-    AccountId, Allowance, Gas, NearToken, PanicOnDefault, Promise, PromiseResult, PublicKey, env,
-    near, CryptoHash,
+    AccountId, Allowance, CryptoHash, Gas, NearToken, PanicOnDefault, Promise, PromiseResult,
+    PublicKey, env, near,
 };
 use std::num::NonZeroU128;
 
@@ -165,8 +165,11 @@ impl LinkDrop {
             options.contract_bytes_base64.is_some(),
             options.use_global_contract_hash.is_some(),
             options.use_global_contract_account_id.is_some(),
-        ].iter().filter(|&&x| x).count();
-        
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count();
+
         assert!(
             contract_options_count <= 1,
             "Cannot specify multiple contract deployment options. Choose only one: contract_bytes, contract_bytes_base64, use_global_contract_hash, or use_global_contract_account_id."
@@ -682,7 +685,7 @@ mod tests {
         let deposit = NearToken::from_yoctonear(1_000_000);
 
         // Create a 32-byte hash for the global contract
-        let code_hash = vec![1u8; 32];
+        let code_hash = [1u8; 32].into();
 
         // Create options for the advanced account creation with global contract hash
         let options: CreateAccountOptions = CreateAccountOptions {
@@ -763,8 +766,8 @@ mod tests {
                 limited_access_keys: None,
                 contract_bytes: None,
                 contract_bytes_base64: None,
-                use_global_contract_hash: Some(vec![1u8; 32]),
-                use_global_contract_account_id: None,
+                use_global_contract_hash: Some([1u8; 32].into()),
+                use_global_contract_account_id: Some("near".parse().unwrap()),
             },
         );
     }
@@ -794,7 +797,7 @@ mod tests {
                 limited_access_keys: None,
                 contract_bytes: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
                 contract_bytes_base64: None,
-                use_global_contract_hash: None,
+                use_global_contract_hash: Some([1u8; 32].into()),
                 use_global_contract_account_id: None,
             },
         );

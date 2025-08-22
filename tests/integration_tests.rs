@@ -356,8 +356,28 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
 
 #[test_log::test(tokio::test)]
 async fn test_create_account_with_global_contract_hash() -> Result<()> {
-    let (_sandbox, network, root_id, _root_signer, creator_id, creator_signer) =
+    let (_sandbox, network, root_id, root_signer, creator_id, creator_signer) =
         setup_sandbox().await?;
+
+    let global_contract_account_id: AccountId = format!("global.{}", root_id).parse()?;
+    Account::create_account(global_contract_account_id.clone())
+        .fund_myself(root_id.clone(), NearToken::from_near(1))
+        .public_key(root_signer.get_public_key().await?)?
+        .with_signer(root_signer.clone())
+        .send_to(&network)
+        .await?;
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(&NFT_TUTORIAL_WASM);
+    let code_hash_bytes = hasher.finalize();
+    let code_hash = bs58::encode(&code_hash_bytes).into_string();
+
+    Contract::deploy_global_contract_code(NFT_TUTORIAL_WASM.to_vec())
+        .as_account_id(global_contract_account_id)
+        .with_signer(root_signer)
+        .send_to(&network)
+        .await?;
 
     let new_account_id: AccountId = format!("test_global.{}", root_id).parse()?;
 
@@ -368,16 +388,8 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .await
         .expect_err("Account should not exist yet");
 
-    // For testing purposes, we'll use a Base58-encoded hash string representation
-    // In practice, this would be the hash of a deployed global contract
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(NFT_TUTORIAL_WASM);
-    let code_hash_bytes = hasher.finalize();
-    let code_hash = bs58::encode(&code_hash_bytes).into_string();
-
     // Create account with global contract hash
-    let result = Contract(root_id.clone())
+    Contract(root_id.clone())
         .call_function(
             "create_account_advanced",
             json!({
@@ -394,37 +406,39 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .send_to(&network)
         .await?;
 
-    // The transaction should complete (though may fail at runtime if hash doesn't exist)
-    println!("Transaction result: {:?}", result.transaction_outcome.outcome.status);
-
     Ok(())
 }
 
 #[test_log::test(tokio::test)]
 async fn test_create_account_with_global_contract_account_id() -> Result<()> {
-    let (_sandbox, network, root_id, _root_signer, creator_id, creator_signer) =
+    let (_sandbox, network, root_id, root_signer, creator_id, creator_signer) =
         setup_sandbox().await?;
+
+    let global_contract_account_id: AccountId = format!("global.{}", root_id).parse()?;
+    Account::create_account(global_contract_account_id.clone())
+        .fund_myself(root_id.clone(), NearToken::from_near(1))
+        .public_key(root_signer.get_public_key().await?)?
+        .with_signer(root_signer.clone())
+        .send_to(&network)
+        .await?;
+
+    let contract_code = vec![1u8; 10];
+    Contract::deploy_global_contract_code(contract_code)
+        .as_account_id(global_contract_account_id.clone())
+        .with_signer(root_signer)
+        .send_to(&network)
+        .await?;
 
     let new_account_id: AccountId = format!("test_global2.{}", root_id).parse()?;
 
-    // Check that the new account doesn't exist yet
-    Tokens::account(new_account_id.clone())
-        .near_balance()
-        .fetch_from(&network)
-        .await
-        .expect_err("Account should not exist yet");
-
-    // Use a reference account ID (in practice this would be an account that deployed a global contract)
-    let deployer_account: AccountId = format!("nft-contract.{}", root_id).parse()?;
-
     // Create account with global contract by account ID (referencing the deployer account)
-    let result = Contract(root_id.clone())
+    Contract(root_id.clone())
         .call_function(
             "create_account_advanced",
             json!({
                 "new_account_id": new_account_id.to_string(),
                 "options": {
-                    "use_global_contract_account_id": deployer_account,
+                    "use_global_contract_account_id": global_contract_account_id,
                 }
             }),
         )?
@@ -434,9 +448,6 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
         .with_signer(creator_id.clone(), creator_signer.clone())
         .send_to(&network)
         .await?;
-
-    // The transaction should complete (though may fail at runtime if account doesn't have global contract)
-    println!("Transaction result: {:?}", result.transaction_outcome.outcome.status);
 
     Ok(())
 }
