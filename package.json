@@ -4,7 +4,7 @@
   "license": "MIT",
   "author": "Pagoda",
   "scripts": {
-    "test": "ava __tests__/main.ava.ts"
+    "test": "env SANDBOX_ARTIFACT_URL=https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.7.0/near-sandbox.tar.gz ava __tests__/main.ava.ts"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",
