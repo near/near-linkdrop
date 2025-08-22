@@ -1,8 +1,8 @@
 use anyhow::Result;
 use near_api::near_primitives;
 use near_api::{
-    signer, Account, AccountId, Contract, NearGas, NearToken, NetworkConfig, RPCEndpoint, Signer,
-    Tokens,
+    Account, AccountId, Contract, NearGas, NearToken, NetworkConfig, RPCEndpoint, Signer, Tokens,
+    signer,
 };
 use near_sandbox::{GenesisAccount, Sandbox};
 use serde_json::json;
@@ -356,4 +356,3 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
 
     Ok(())
 }
-
