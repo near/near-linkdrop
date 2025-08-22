@@ -1,4 +1,4 @@
-use near_sdk::json_types::Base64VecU8;
+use near_sdk::json_types::{Base64VecU8, Base58CryptoHash};
 use near_sdk::near;
 
 use crate::*;
@@ -33,7 +33,7 @@ pub struct CreateAccountOptions {
     pub contract_bytes: Option<Vec<u8>>,
     pub contract_bytes_base64: Option<Base64VecU8>,
     /// Use an existing global contract by code hash (32-byte hash).
-    pub use_global_contract_hash: Option<Vec<u8>>,
+    pub use_global_contract_hash: Option<Base58CryptoHash>,
     /// Use an existing global contract by referencing the account that deployed it.
     pub use_global_contract_account_id: Option<AccountId>,
 }

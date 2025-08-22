@@ -1,7 +1,7 @@
 use near_sdk::store::UnorderedMap;
 use near_sdk::{
     AccountId, Allowance, Gas, NearToken, PanicOnDefault, Promise, PromiseResult, PublicKey, env,
-    near,
+    near, CryptoHash,
 };
 use std::num::NonZeroU128;
 
@@ -215,7 +215,8 @@ impl LinkDrop {
 
         // If there's a global contract hash, use the existing global contract
         if let Some(code_hash) = options.use_global_contract_hash {
-            promise = promise.use_global_contract(code_hash);
+            let crypto_hash: CryptoHash = code_hash.into();
+            promise = promise.use_global_contract(crypto_hash.to_vec());
         };
 
         // If there's a global contract account ID, use the existing global contract by account ID

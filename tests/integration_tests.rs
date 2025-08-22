@@ -368,11 +368,15 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .await
         .expect_err("Account should not exist yet");
 
-    // Use a dummy 32-byte hash for testing (normally this would be a real contract hash)
-    let code_hash = vec![1u8; 32];
+    // For testing purposes, we'll use a Base58-encoded hash string representation
+    // In practice, this would be the hash of a deployed global contract
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(NFT_TUTORIAL_WASM);
+    let code_hash_bytes = hasher.finalize();
+    let code_hash = bs58::encode(&code_hash_bytes).into_string();
 
-    // Create account with global contract hash (this would fail in real usage 
-    // if the hash doesn't exist, but it tests the API)
+    // Create account with global contract hash
     let result = Contract(root_id.clone())
         .call_function(
             "create_account_advanced",
@@ -390,12 +394,8 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .send_to(&network)
         .await?;
 
-    // The transaction should succeed from an API perspective (though the global contract
-    // lookup might fail in runtime if the hash doesn't exist)
+    // The transaction should complete (though may fail at runtime if hash doesn't exist)
     println!("Transaction result: {:?}", result.transaction_outcome.outcome.status);
-    
-    // We're primarily testing that our API changes work correctly
-    // The actual global contract usage would need real deployed contracts to test fully
 
     Ok(())
 }
@@ -414,10 +414,10 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
         .await
         .expect_err("Account should not exist yet");
 
-    // Use a reference account ID (normally this would reference an account that deployed a global contract)
-    let deployer_account: AccountId = "deployer.near".parse()?;
+    // Use a reference account ID (in practice this would be an account that deployed a global contract)
+    let deployer_account: AccountId = format!("nft-contract.{}", root_id).parse()?;
 
-    // Create account with global contract by account ID
+    // Create account with global contract by account ID (referencing the deployer account)
     let result = Contract(root_id.clone())
         .call_function(
             "create_account_advanced",
@@ -435,7 +435,7 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
         .send_to(&network)
         .await?;
 
-    // The transaction should succeed from an API perspective
+    // The transaction should complete (though may fail at runtime if account doesn't have global contract)
     println!("Transaction result: {:?}", result.transaction_outcome.outcome.status);
 
     Ok(())
