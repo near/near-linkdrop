@@ -389,22 +389,27 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .expect_err("Account should not exist yet");
 
     // Create account with global contract hash
-    Contract(root_id.clone())
-        .call_function(
-            "create_account_advanced",
-            json!({
-                "new_account_id": new_account_id,
-                "options": {
-                    "use_global_contract_hash": code_hash,
-                }
-            }),
-        )?
-        .transaction()
-        .deposit(NearToken::from_millinear(1))
-        .gas(NearGas::from_tgas(300))
-        .with_signer(creator_id, creator_signer)
-        .send_to(&network)
-        .await?;
+    assert_eq!(
+        Contract(root_id.clone())
+            .call_function(
+                "create_account_advanced",
+                json!({
+                    "new_account_id": new_account_id,
+                    "options": {
+                        "use_global_contract_hash": code_hash,
+                    }
+                }),
+            )?
+            .transaction()
+            .deposit(NearToken::from_millinear(1))
+            .gas(NearGas::from_tgas(300))
+            .with_signer(creator_id, creator_signer)
+            .send_to(&network)
+            .await?
+            .status,
+        near_primitives::views::FinalExecutionStatus::SuccessValue(b"true".to_vec()),
+        "Account creation with existing global contract hash must succeed"
+    );
 
     Ok(())
 }
@@ -430,23 +435,27 @@ async fn test_create_account_with_non_existing_global_contract_hash() -> Result<
         .expect_err("Account should not exist yet");
 
     // Create account with global contract hash
-    Contract(root_id.clone())
-        .call_function(
-            "create_account_advanced",
-            json!({
-                "new_account_id": new_account_id,
-                "options": {
-                    "use_global_contract_hash": code_hash,
-                }
-            }),
-        )?
-        .transaction()
-        .deposit(NearToken::from_near(2))
-        .gas(NearGas::from_tgas(300))
-        .with_signer(creator_id, creator_signer)
-        .send_to(&network)
-        .await
-        .expect_err("Account creation with non-existing global contract hash must fail");
+    assert_eq!(
+        Contract(root_id.clone())
+            .call_function(
+                "create_account_advanced",
+                json!({
+                    "new_account_id": new_account_id,
+                    "options": {
+                        "use_global_contract_hash": code_hash,
+                    }
+                }),
+            )?
+            .transaction()
+            .deposit(NearToken::from_near(2))
+            .gas(NearGas::from_tgas(300))
+            .with_signer(creator_id, creator_signer)
+            .send_to(&network)
+            .await?
+            .status,
+        near_primitives::views::FinalExecutionStatus::SuccessValue(b"false".to_vec()),
+        "Account creation with non-existing global contract hash must fail"
+    );
 
     Ok(())
 }
@@ -474,22 +483,27 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
     let new_account_id: AccountId = format!("test_global2.{}", root_id).parse()?;
 
     // Create account with global contract by account ID (referencing the deployer account)
-    Contract(root_id.clone())
-        .call_function(
-            "create_account_advanced",
-            json!({
-                "new_account_id": new_account_id,
-                "options": {
-                    "use_global_contract_account_id": global_contract_account_id,
-                }
-            }),
-        )?
-        .transaction()
-        .deposit(NearToken::from_millinear(1))
-        .gas(NearGas::from_tgas(300))
-        .with_signer(creator_id, creator_signer)
-        .send_to(&network)
-        .await?;
+    assert_eq!(
+        Contract(root_id.clone())
+            .call_function(
+                "create_account_advanced",
+                json!({
+                    "new_account_id": new_account_id,
+                    "options": {
+                        "use_global_contract_account_id": global_contract_account_id,
+                    }
+                }),
+            )?
+            .transaction()
+            .deposit(NearToken::from_millinear(1))
+            .gas(NearGas::from_tgas(300))
+            .with_signer(creator_id, creator_signer)
+            .send_to(&network)
+            .await?
+            .status,
+        near_primitives::views::FinalExecutionStatus::SuccessValue(b"true".to_vec()),
+        "Account creation with existing global contract id must succeed"
+    );
 
     Ok(())
 }
@@ -504,23 +518,27 @@ async fn test_create_account_with_non_existing_global_contract_account_id() -> R
     let new_account_id: AccountId = format!("test_global2.{}", root_id).parse()?;
 
     // Create account with global contract by account ID (referencing the deployer account)
-    Contract(root_id.clone())
-        .call_function(
-            "create_account_advanced",
-            json!({
-                "new_account_id": new_account_id,
-                "options": {
-                    "use_global_contract_account_id": global_contract_account_id,
-                }
-            }),
-        )?
-        .transaction()
-        .deposit(NearToken::from_near(2))
-        .gas(NearGas::from_tgas(300))
-        .with_signer(creator_id, creator_signer)
-        .send_to(&network)
-        .await
-        .expect_err("Account creation with non-existing global contract id must fail");
+    assert_eq!(
+        Contract(root_id.clone())
+            .call_function(
+                "create_account_advanced",
+                json!({
+                    "new_account_id": new_account_id,
+                    "options": {
+                        "use_global_contract_account_id": global_contract_account_id,
+                    }
+                }),
+            )?
+            .transaction()
+            .deposit(NearToken::from_near(2))
+            .gas(NearGas::from_tgas(300))
+            .with_signer(creator_id, creator_signer)
+            .send_to(&network)
+            .await?
+            .status,
+        near_primitives::views::FinalExecutionStatus::SuccessValue(b"false".to_vec()),
+        "Account creation with non-existing global contract id must fail"
+    );
 
     Ok(())
 }
