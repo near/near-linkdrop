@@ -551,7 +551,7 @@ mod tests {
         let options: CreateAccountOptions = CreateAccountOptions {
             full_access_keys: Some(vec![pk.clone()]),
             limited_access_keys: Some(vec![LimitedAccessKey {
-                public_key: pk.clone(),
+                public_key: pk,
                 allowance: NearToken::from_yoctonear(100),
                 receiver_id: linkdrop(),
                 method_names: "send".to_string(),

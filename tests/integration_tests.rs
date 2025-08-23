@@ -369,7 +369,7 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
 
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
-    hasher.update(&NFT_TUTORIAL_WASM);
+    hasher.update(NFT_TUTORIAL_WASM);
     let code_hash_bytes = hasher.finalize();
     let code_hash = bs58::encode(&code_hash_bytes).into_string();
 

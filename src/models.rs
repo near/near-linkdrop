@@ -1,4 +1,4 @@
-use near_sdk::json_types::{Base64VecU8, Base58CryptoHash};
+use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
 use near_sdk::near;
 
 use crate::*;
