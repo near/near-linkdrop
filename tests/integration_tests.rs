@@ -119,24 +119,28 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
     );
 
     // Create account with both types of keys
-    Contract(root_id.clone())
-        .call_function(
-            "create_account_advanced",
-            json!({
-                "new_account_id": new_account_id,
-                "options": {
-                    "limited_access_keys": limited_keys_data,
-                    "full_access_keys": full_access_keys.to_vec(),
-                }
-            }),
-        )?
-        .transaction()
-        .deposit(NearToken::from_near(2))
-        .gas(NearGas::from_tgas(30))
-        .with_signer(creator_id, creator_signer)
-        .send_to(&network)
-        .await?
-        .assert_success();
+    assert_eq!(
+        Contract(root_id.clone())
+            .call_function(
+                "create_account_advanced",
+                json!({
+                    "new_account_id": new_account_id,
+                    "options": {
+                        "limited_access_keys": limited_keys_data,
+                        "full_access_keys": full_access_keys.to_vec(),
+                    }
+                }),
+            )?
+            .transaction()
+            .deposit(NearToken::from_near(2))
+            .gas(NearGas::from_tgas(30))
+            .with_signer(creator_id, creator_signer)
+            .send_to(&network)
+            .await?
+            .status,
+        near_primitives::views::FinalExecutionStatus::SuccessValue(b"true".to_vec()),
+        "Account creation with a mix of limited and full access keys must succeed"
+    );
 
     // Verify the new account exists
     let account_balance = Tokens::account(new_account_id.clone())
@@ -300,8 +304,8 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
             .send_to(&network)
             .await?
             .status,
-        near_primitives::views::FinalExecutionStatus::SuccessValue(b"true".to_vec()),
-        "Account creation with a mix of limited and full access keys must succeed"
+        near_primitives::views::FinalExecutionStatus::SuccessValue(b"false".to_vec()),
+        "Account creation with an overlaping mix of limited and full access keys must fail"
     );
 
     // Verify the account was not created
@@ -342,7 +346,7 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
             root_id.clone(),
             NearToken::from_near(1)
                 .saturating_div(10_000)
-                .saturating_mul(NFT_TUTORIAL_WASM.len() as u128 + 50),
+                .saturating_mul(NFT_TUTORIAL_WASM.len() as u128 + 30),
         )
         .public_key(root_signer.get_public_key().await?)?
         .with_signer(root_signer.clone())
