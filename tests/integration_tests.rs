@@ -130,7 +130,7 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
         )?
         .transaction()
         .deposit(NearToken::from_near(2))
-        .gas(NearGas::from_tgas(300))
+        .gas(NearGas::from_tgas(10))
         .with_signer(creator_id, creator_signer)
         .send_to(&network)
         .await?;
@@ -193,7 +193,7 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
         )?
         .transaction()
         .deposit(NearToken::from_near(10))
-        .gas(NearGas::from_tgas(300))
+        .gas(NearGas::from_tgas(10))
         .with_signer(creator_id.clone(), creator_signer.clone())
         .send_to(&network)
         .await?;
@@ -305,6 +305,7 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
         )?
         .transaction()
         .deposit(NearToken::from_near(2))
+        .gas(NearGas::from_tgas(10))
         .with_signer(creator_id.clone(), creator_signer)
         .send_to(&network)
         .await;
@@ -374,8 +375,8 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
     let code_hash = bs58::encode(&code_hash_bytes).into_string();
 
     Contract::deploy_global_contract_code(NFT_TUTORIAL_WASM.to_vec())
-        .as_account_id(global_contract_account_id)
-        .with_signer(root_signer)
+        .as_hash()
+        .with_signer(global_contract_account_id, root_signer)
         .send_to(&network)
         .await?;
 
@@ -402,7 +403,7 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
             )?
             .transaction()
             .deposit(NearToken::from_millinear(1))
-            .gas(NearGas::from_tgas(300))
+            .gas(NearGas::from_tgas(10))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
@@ -448,7 +449,7 @@ async fn test_create_account_with_non_existing_global_contract_hash() -> Result<
             )?
             .transaction()
             .deposit(NearToken::from_near(2))
-            .gas(NearGas::from_tgas(300))
+            .gas(NearGas::from_tgas(10))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
@@ -496,7 +497,7 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
             )?
             .transaction()
             .deposit(NearToken::from_millinear(1))
-            .gas(NearGas::from_tgas(300))
+            .gas(NearGas::from_tgas(10))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
@@ -531,7 +532,7 @@ async fn test_create_account_with_non_existing_global_contract_account_id() -> R
             )?
             .transaction()
             .deposit(NearToken::from_near(2))
-            .gas(NearGas::from_tgas(300))
+            .gas(NearGas::from_tgas(10))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
