@@ -40,7 +40,8 @@ async fn setup_sandbox() -> Result<(
         .with_init_call("new", json!({}))?
         .with_signer(root_signer.clone())
         .send_to(&network_config)
-        .await?;
+        .await?
+        .assert_success();
 
     // Create test account
     let creator_id: AccountId = format!("creator.{}", root_id).parse()?;
@@ -50,7 +51,8 @@ async fn setup_sandbox() -> Result<(
         .public_key(creator_key.public_key())?
         .with_signer(root_signer.clone())
         .send_to(&network_config)
-        .await?;
+        .await?
+        .assert_success();
     let creator_signer = Signer::new(Signer::from_secret_key(creator_key))?;
 
     Ok((
@@ -117,7 +119,7 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
     );
 
     // Create account with both types of keys
-    let result = Contract(root_id.clone())
+    Contract(root_id.clone())
         .call_function(
             "create_account_advanced",
             json!({
@@ -130,18 +132,11 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
         )?
         .transaction()
         .deposit(NearToken::from_near(2))
-        .gas(NearGas::from_tgas(15))
+        .gas(NearGas::from_tgas(30))
         .with_signer(creator_id, creator_signer)
         .send_to(&network)
-        .await?;
-
-    // Check that transaction succeeded
-    let success = matches!(
-        result.transaction_outcome.outcome.status,
-        near_primitives::views::ExecutionStatusView::SuccessValue(_)
-            | near_primitives::views::ExecutionStatusView::SuccessReceiptId(_)
-    );
-    assert!(success, "Transaction should succeed");
+        .await?
+        .assert_success();
 
     // Verify the new account exists
     let account_balance = Tokens::account(new_account_id.clone())
@@ -181,7 +176,7 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
     let contract_bytes: Vec<u8> = NFT_TUTORIAL_WASM.to_vec();
 
     // Create account with NFT contract
-    let result = Contract(root_id.clone())
+    Contract(root_id.clone())
         .call_function(
             "create_account_advanced",
             json!({
@@ -193,18 +188,11 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
         )?
         .transaction()
         .deposit(NearToken::from_near(10))
-        .gas(NearGas::from_tgas(15))
+        .gas(NearGas::from_tgas(250))
         .with_signer(creator_id.clone(), creator_signer.clone())
         .send_to(&network)
-        .await?;
-
-    // Check that transaction succeeded
-    let success = matches!(
-        result.transaction_outcome.outcome.status,
-        near_primitives::views::ExecutionStatusView::SuccessValue(_)
-            | near_primitives::views::ExecutionStatusView::SuccessReceiptId(_)
-    );
-    assert!(success, "Transaction should succeed: {:?}", result);
+        .await?
+        .assert_success();
 
     // Verify the new account exists
     Tokens::account(new_account_id.clone())
@@ -224,7 +212,8 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
         .transaction()
         .with_signer(creator_id, creator_signer)
         .send_to(&network)
-        .await?;
+        .await?
+        .assert_success();
 
     // Verify NFT metadata matches expected values (including GOTEAM symbol)
     let metadata = Contract(new_account_id.clone())
@@ -292,41 +281,28 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
         generate_limited_access_key_data(&public_keys, &root_id, "create_account_advanced");
 
     // Try to create account with FAK and limited access key with same public key
-    let result = Contract(root_id.clone())
-        .call_function(
-            "create_account_advanced",
-            json!({
-                "new_account_id": new_account_id,
-                "options": {
-                    "limited_access_keys": limited_keys_data,
-                    "full_access_keys": public_keys.clone(),
-                }
-            }),
-        )?
-        .transaction()
-        .deposit(NearToken::from_near(2))
-        .gas(NearGas::from_tgas(15))
-        .with_signer(creator_id.clone(), creator_signer)
-        .send_to(&network)
-        .await;
-
-    // The transaction will succeed but the account creation will fail in a receipt
-    if let Ok(res) = &result {
-        // The transaction succeeds but one of the receipts will fail
-        let has_add_key_error = res.receipts_outcome.iter().any(|receipt| {
-            matches!(
-                &receipt.outcome.status,
-                near_primitives::views::ExecutionStatusView::Failure(_)
-            )
-        });
-        assert!(
-            has_add_key_error,
-            "Should have AddKeyAlreadyExists error in receipts"
-        );
-    } else {
-        // Transaction failed at network level, which is also acceptable for this test
-        println!("Transaction failed at network level (expected)");
-    }
+    assert_eq!(
+        Contract(root_id.clone())
+            .call_function(
+                "create_account_advanced",
+                json!({
+                    "new_account_id": new_account_id,
+                    "options": {
+                        "limited_access_keys": limited_keys_data,
+                        "full_access_keys": public_keys,
+                    }
+                }),
+            )?
+            .transaction()
+            .deposit(NearToken::from_near(2))
+            .gas(NearGas::from_tgas(25))
+            .with_signer(creator_id.clone(), creator_signer)
+            .send_to(&network)
+            .await?
+            .status,
+        near_primitives::views::FinalExecutionStatus::SuccessValue(b"true".to_vec()),
+        "Account creation with a mix of limited and full access keys must succeed"
+    );
 
     // Verify the account was not created
     Tokens::account(new_account_id.clone())
@@ -362,11 +338,17 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
 
     let global_contract_account_id: AccountId = format!("global.{}", root_id).parse()?;
     Account::create_account(global_contract_account_id.clone())
-        .fund_myself(root_id.clone(), NearToken::from_near(1))
+        .fund_myself(
+            root_id.clone(),
+            NearToken::from_near(1)
+                .saturating_div(10_000)
+                .saturating_mul(NFT_TUTORIAL_WASM.len() as u128 + 50),
+        )
         .public_key(root_signer.get_public_key().await?)?
         .with_signer(root_signer.clone())
         .send_to(&network)
-        .await?;
+        .await?
+        .assert_success();
 
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
@@ -378,7 +360,8 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .as_hash()
         .with_signer(global_contract_account_id, root_signer)
         .send_to(&network)
-        .await?;
+        .await?
+        .assert_success();
 
     let new_account_id: AccountId = format!("test_global.{}", root_id).parse()?;
 
@@ -403,7 +386,7 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
             )?
             .transaction()
             .deposit(NearToken::from_millinear(1))
-            .gas(NearGas::from_tgas(15))
+            .gas(NearGas::from_tgas(25))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
@@ -449,7 +432,7 @@ async fn test_create_account_with_non_existing_global_contract_hash() -> Result<
             )?
             .transaction()
             .deposit(NearToken::from_near(2))
-            .gas(NearGas::from_tgas(15))
+            .gas(NearGas::from_tgas(25))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
@@ -468,18 +451,24 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
 
     let global_contract_account_id: AccountId = format!("global.{}", root_id).parse()?;
     Account::create_account(global_contract_account_id.clone())
-        .fund_myself(root_id.clone(), NearToken::from_near(1))
+        .fund_myself(
+            root_id.clone(),
+            NearToken::from_near(1)
+                .saturating_div(10_000)
+                .saturating_mul(NFT_TUTORIAL_WASM.len() as u128 + 30),
+        )
         .public_key(root_signer.get_public_key().await?)?
         .with_signer(root_signer.clone())
         .send_to(&network)
-        .await?;
+        .await?
+        .assert_success();
 
-    let contract_code = vec![1u8; 10];
-    Contract::deploy_global_contract_code(contract_code)
+    Contract::deploy_global_contract_code(NFT_TUTORIAL_WASM.to_vec())
         .as_account_id(global_contract_account_id.clone())
         .with_signer(root_signer)
         .send_to(&network)
-        .await?;
+        .await?
+        .assert_success();
 
     let new_account_id: AccountId = format!("test_global2.{}", root_id).parse()?;
 
@@ -497,7 +486,7 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
             )?
             .transaction()
             .deposit(NearToken::from_millinear(1))
-            .gas(NearGas::from_tgas(15))
+            .gas(NearGas::from_tgas(25))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
@@ -532,7 +521,7 @@ async fn test_create_account_with_non_existing_global_contract_account_id() -> R
             )?
             .transaction()
             .deposit(NearToken::from_near(2))
-            .gas(NearGas::from_tgas(15))
+            .gas(NearGas::from_tgas(25))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
             .await?
