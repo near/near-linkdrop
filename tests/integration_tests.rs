@@ -85,7 +85,7 @@ fn generate_limited_access_key_data(
             json!({
                 "public_key": pk,
                 "allowance": "0",
-                "receiver_id": receiver_id.to_string(),
+                "receiver_id": receiver_id,
                 "method_names": method_names,
             })
         })
@@ -121,7 +121,7 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
         .call_function(
             "create_account_advanced",
             json!({
-                "new_account_id": new_account_id.to_string(),
+                "new_account_id": new_account_id,
                 "options": {
                     "limited_access_keys": limited_keys_data,
                     "full_access_keys": full_access_keys.to_vec(),
@@ -131,7 +131,7 @@ async fn test_add_5_different_faks_and_limited_access_keys() -> Result<()> {
         .transaction()
         .deposit(NearToken::from_near(2))
         .gas(NearGas::from_tgas(300))
-        .with_signer(creator_id.clone(), creator_signer)
+        .with_signer(creator_id, creator_signer)
         .send_to(&network)
         .await?;
 
@@ -185,7 +185,7 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
         .call_function(
             "create_account_advanced",
             json!({
-                "new_account_id": new_account_id.to_string(),
+                "new_account_id": new_account_id,
                 "options": {
                     "contract_bytes": contract_bytes,
                 }
@@ -218,11 +218,11 @@ async fn test_deploy_nft_contract_without_keys() -> Result<()> {
         .call_function(
             "new_default_meta",
             json!({
-                "owner_id": creator_id.to_string(),
+                "owner_id": creator_id,
             }),
         )?
         .transaction()
-        .with_signer(creator_id.clone(), creator_signer.clone())
+        .with_signer(creator_id, creator_signer)
         .send_to(&network)
         .await?;
 
@@ -296,7 +296,7 @@ async fn test_add_2_types_of_access_keys_with_same_public_key() -> Result<()> {
         .call_function(
             "create_account_advanced",
             json!({
-                "new_account_id": new_account_id.to_string(),
+                "new_account_id": new_account_id,
                 "options": {
                     "limited_access_keys": limited_keys_data,
                     "full_access_keys": public_keys.clone(),
@@ -393,7 +393,48 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .call_function(
             "create_account_advanced",
             json!({
-                "new_account_id": new_account_id.to_string(),
+                "new_account_id": new_account_id,
+                "options": {
+                    "use_global_contract_hash": code_hash,
+                }
+            }),
+        )?
+        .transaction()
+        .deposit(NearToken::from_millinear(1))
+        .gas(NearGas::from_tgas(300))
+        .with_signer(creator_id, creator_signer)
+        .send_to(&network)
+        .await?;
+
+    Ok(())
+}
+
+#[test_log::test(tokio::test)]
+async fn test_create_account_with_non_existing_global_contract_hash() -> Result<()> {
+    let (_sandbox, network, root_id, _root_signer, creator_id, creator_signer) =
+        setup_sandbox().await?;
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(NFT_TUTORIAL_WASM);
+    let code_hash_bytes = hasher.finalize();
+    let code_hash = bs58::encode(&code_hash_bytes).into_string();
+
+    let new_account_id: AccountId = format!("test_global.{}", root_id).parse()?;
+
+    // Check that the new account doesn't exist yet
+    Tokens::account(new_account_id.clone())
+        .near_balance()
+        .fetch_from(&network)
+        .await
+        .expect_err("Account should not exist yet");
+
+    // Create account with global contract hash
+    Contract(root_id.clone())
+        .call_function(
+            "create_account_advanced",
+            json!({
+                "new_account_id": new_account_id,
                 "options": {
                     "use_global_contract_hash": code_hash,
                 }
@@ -402,9 +443,10 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .transaction()
         .deposit(NearToken::from_near(2))
         .gas(NearGas::from_tgas(300))
-        .with_signer(creator_id.clone(), creator_signer.clone())
+        .with_signer(creator_id, creator_signer)
         .send_to(&network)
-        .await?;
+        .await
+        .expect_err("Account creation with non-existing global contract hash must fail");
 
     Ok(())
 }
@@ -436,7 +478,37 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
         .call_function(
             "create_account_advanced",
             json!({
-                "new_account_id": new_account_id.to_string(),
+                "new_account_id": new_account_id,
+                "options": {
+                    "use_global_contract_account_id": global_contract_account_id,
+                }
+            }),
+        )?
+        .transaction()
+        .deposit(NearToken::from_millinear(1))
+        .gas(NearGas::from_tgas(300))
+        .with_signer(creator_id, creator_signer)
+        .send_to(&network)
+        .await?;
+
+    Ok(())
+}
+
+#[test_log::test(tokio::test)]
+async fn test_create_account_with_non_existing_global_contract_account_id() -> Result<()> {
+    let (_sandbox, network, root_id, _root_signer, creator_id, creator_signer) =
+        setup_sandbox().await?;
+
+    let global_contract_account_id: AccountId = format!("global.{}", root_id).parse()?;
+
+    let new_account_id: AccountId = format!("test_global2.{}", root_id).parse()?;
+
+    // Create account with global contract by account ID (referencing the deployer account)
+    Contract(root_id.clone())
+        .call_function(
+            "create_account_advanced",
+            json!({
+                "new_account_id": new_account_id,
                 "options": {
                     "use_global_contract_account_id": global_contract_account_id,
                 }
@@ -445,9 +517,10 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
         .transaction()
         .deposit(NearToken::from_near(2))
         .gas(NearGas::from_tgas(300))
-        .with_signer(creator_id.clone(), creator_signer.clone())
+        .with_signer(creator_id, creator_signer)
         .send_to(&network)
-        .await?;
+        .await
+        .expect_err("Account creation with non-existing global contract id must fail");
 
     Ok(())
 }

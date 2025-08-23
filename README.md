@@ -26,29 +26,20 @@ The contract also supports advanced account creation through the `create_account
 - Custom access keys (full or limited)
 - Contract deployment (regular or global contracts)
 
-### Global Contract Support (NEAR SDK 5.17+)
-
-With NEAR SDK 5.17, the contract now supports global contract deployment and usage through the following options:
-
-- `global_contract_code`: Deploy a new global smart contract using the provided contract code
-- `global_contract_code_by_account_id`: Deploy a global smart contract identifiable by the predecessor's account ID
-- `use_global_contract_hash`: Use an existing global contract by its code hash (32-byte hash)
-- `use_global_contract_account_id`: Use an existing global contract by referencing the account that deployed it
-
 ### Example Usage
 
 ```javascript
-// Deploy a new global contract
+// Deploy a new contract
 await contract.create_account_advanced(
   "newaccount.near",
   {
-    global_contract_code: contractBytes
+    contract_bytes_base64: "base64_encoded_wasm_file"
   }
 );
 
 // Use an existing global contract by hash
 await contract.create_account_advanced(
-  "newaccount.near", 
+  "newaccount.near",
   {
     use_global_contract_hash: hashBytes  // 32-byte hash
   }
@@ -64,4 +55,3 @@ await contract.create_account_advanced(
 ```
 
 **Note**: Only one contract deployment option can be specified at a time. The options are mutually exclusive.
-
