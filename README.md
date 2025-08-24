@@ -19,3 +19,39 @@ Receiver, that doesn't have NEAR:
 If Receiver already has account (or Sender wants to get back the money):
 - Sign tx with `privkey1` to call `linkdrop.claim()`, which transfers money to signer's account.
 
+## Advanced Account Creation
+
+The contract also supports advanced account creation through the `create_account_advanced` method, which allows creating accounts with:
+
+- Custom access keys (full or limited)
+- Contract deployment (regular or global contracts)
+
+### Example Usage
+
+```javascript
+// Deploy a new contract
+await contract.create_account_advanced(
+  "newaccount.near",
+  {
+    contract_bytes_base64: "base64_encoded_wasm_file"
+  }
+);
+
+// Use an existing global contract by hash
+await contract.create_account_advanced(
+  "newaccount.near",
+  {
+    use_global_contract_hash: hashBytes  // 32-byte hash
+  }
+);
+
+// Use an existing global contract by deployer account
+await contract.create_account_advanced(
+  "newaccount.near",
+  {
+    use_global_contract_account_id: "deployer.near"
+  }
+);
+```
+
+**Note**: Only one contract deployment option can be specified at a time. The options are mutually exclusive.

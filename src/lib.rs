@@ -1,7 +1,7 @@
 use near_sdk::store::UnorderedMap;
 use near_sdk::{
-    AccountId, Allowance, Gas, NearToken, PanicOnDefault, Promise, PromiseResult, PublicKey, env,
-    near,
+    AccountId, Allowance, CryptoHash, Gas, NearToken, PanicOnDefault, Promise, PromiseResult,
+    PublicKey, env, near,
 };
 use std::num::NonZeroU128;
 
@@ -151,17 +151,28 @@ impl LinkDrop {
         let is_some_option = options.contract_bytes_base64.is_some()
             || options.contract_bytes.is_some()
             || options.full_access_keys.is_some()
-            || options.limited_access_keys.is_some();
+            || options.limited_access_keys.is_some()
+            || options.use_global_contract_hash.is_some()
+            || options.use_global_contract_account_id.is_some();
         assert!(
             is_some_option,
-            "Cannot create account with no options. Please specify either contract bytes, full access keys, or limited access keys."
+            "Cannot create account with no options. Please specify either contract bytes, full access keys, limited access keys, or global contract options."
         );
 
-        let is_conflict_contract_bytes =
-            options.contract_bytes_base64.is_some() && options.contract_bytes.is_some();
+        // Count contract deployment options to ensure they're mutually exclusive
+        let contract_options_count = [
+            options.contract_bytes.is_some(),
+            options.contract_bytes_base64.is_some(),
+            options.use_global_contract_hash.is_some(),
+            options.use_global_contract_account_id.is_some(),
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count();
+
         assert!(
-            !is_conflict_contract_bytes,
-            "Cannot give contract bytes and base64 contract byte string at the same time."
+            contract_options_count <= 1,
+            "Cannot specify multiple contract deployment options. Choose only one: contract_bytes, contract_bytes_base64, use_global_contract_hash, or use_global_contract_account_id."
         );
 
         let amount = env::attached_deposit();
@@ -203,6 +214,17 @@ impl LinkDrop {
         // If there are any base 64 contract byte string, we should deploy the contract to the account
         if let Some(bytes) = options.contract_bytes_base64 {
             promise = promise.deploy_contract(bytes.0);
+        };
+
+        // If there's a global contract hash, use the existing global contract
+        if let Some(code_hash) = options.use_global_contract_hash {
+            let crypto_hash: CryptoHash = code_hash.into();
+            promise = promise.use_global_contract(crypto_hash.to_vec());
+        };
+
+        // If there's a global contract account ID, use the existing global contract by account ID
+        if let Some(account_id) = options.use_global_contract_account_id {
+            promise = promise.use_global_contract_by_account_id(account_id);
         };
 
         // Callback if anything went wrong, refund the predecessor for their attached deposit
@@ -529,13 +551,15 @@ mod tests {
         let options: CreateAccountOptions = CreateAccountOptions {
             full_access_keys: Some(vec![pk.clone()]),
             limited_access_keys: Some(vec![LimitedAccessKey {
-                public_key: pk.clone(),
+                public_key: pk,
                 allowance: NearToken::from_yoctonear(100),
                 receiver_id: linkdrop(),
                 method_names: "send".to_string(),
             }]),
             contract_bytes: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
             contract_bytes_base64: None,
+            use_global_contract_hash: None,
+            use_global_contract_account_id: None,
         };
 
         // Initialize the mocked blockchain
@@ -569,6 +593,8 @@ mod tests {
                     .to_vec()
                     .into(),
             ),
+            use_global_contract_hash: None,
+            use_global_contract_account_id: None,
         };
 
         // Initialize the mocked blockchain
@@ -609,6 +635,8 @@ mod tests {
                 limited_access_keys: None,
                 contract_bytes: None,
                 contract_bytes_base64: None,
+                use_global_contract_hash: None,
+                use_global_contract_account_id: None,
             },
         );
     }
@@ -642,6 +670,135 @@ mod tests {
                         .to_vec()
                         .into(),
                 ),
+                use_global_contract_hash: None,
+                use_global_contract_account_id: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_create_advanced_account_with_use_global_contract_hash() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Create a 32-byte hash for the global contract
+        let code_hash = [1u8; 32].into();
+
+        // Create options for the advanced account creation with global contract hash
+        let options: CreateAccountOptions = CreateAccountOptions {
+            full_access_keys: None,
+            limited_access_keys: None,
+            contract_bytes: None,
+            contract_bytes_base64: None,
+            use_global_contract_hash: Some(code_hash),
+            use_global_contract_account_id: None,
+        };
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Create bob's account with the advanced options
+        contract.create_account_advanced(bob(), options);
+    }
+
+    #[test]
+    fn test_create_advanced_account_with_use_global_contract_account_id() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Create options for the advanced account creation with global contract account ID
+        let options: CreateAccountOptions = CreateAccountOptions {
+            full_access_keys: None,
+            limited_access_keys: None,
+            contract_bytes: None,
+            contract_bytes_base64: None,
+            use_global_contract_hash: None,
+            use_global_contract_account_id: Some("deployer.near".parse().unwrap()),
+        };
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Create bob's account with the advanced options
+        contract.create_account_advanced(bob(), options);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_create_advanced_account_conflict_global_contracts() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Try to use both global contract options, which should fail
+        contract.create_account_advanced(
+            bob(),
+            CreateAccountOptions {
+                full_access_keys: None,
+                limited_access_keys: None,
+                contract_bytes: None,
+                contract_bytes_base64: None,
+                use_global_contract_hash: Some([1u8; 32].into()),
+                use_global_contract_account_id: Some("near".parse().unwrap()),
+            },
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_create_advanced_account_conflict_regular_and_global_contracts() {
+        // Create a new instance of the linkdrop contract
+        let mut contract = LinkDrop::new();
+        // Default the deposit to an extremely small amount
+        let deposit = NearToken::from_yoctonear(1_000_000);
+
+        // Initialize the mocked blockchain
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(linkdrop())
+                .attached_deposit(deposit)
+                .context
+                .clone()
+        );
+
+        // Try to use both regular contract bytes and global contract, which should fail
+        contract.create_account_advanced(
+            bob(),
+            CreateAccountOptions {
+                full_access_keys: None,
+                limited_access_keys: None,
+                contract_bytes: Some(include_bytes!("../target/near/linkdrop.wasm").to_vec()),
+                contract_bytes_base64: None,
+                use_global_contract_hash: Some([1u8; 32].into()),
+                use_global_contract_account_id: None,
             },
         );
     }
