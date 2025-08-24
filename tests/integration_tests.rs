@@ -376,20 +376,29 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
         .await
         .expect_err("Account should not exist yet");
 
-    // Create account with global contract hash
+    // Generate a public key for the new account
+    let new_account_key = signer::generate_secret_key()?;
+    let new_account_public_key = new_account_key.public_key();
+
+    // Create account with global contract hash and a full access key
     assert_eq!(
         Contract(root_id.clone())
             .call_function(
                 "create_account_advanced",
                 json!({
-                    "new_account_id": new_account_id,
+                    "new_account_id": new_account_id.clone(),
                     "options": {
                         "use_global_contract_hash": code_hash,
+                        "full_access_keys": [new_account_public_key.to_string()],
                     }
                 }),
             )?
             .transaction()
-            .deposit(NearToken::from_millinear(1))
+            // Named accounts on NEAR need to reserve the storage for the account metadata and
+            // access keys, so we need to include the deposit for the account. Yet, it does not
+            // require to reserve the storage for the contract code if we use global contract, so
+            // 0.005 NEAR should be more than enough.
+            .deposit(NearToken::from_millinear(5))
             .gas(NearGas::from_tgas(25))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
@@ -397,6 +406,55 @@ async fn test_create_account_with_global_contract_hash() -> Result<()> {
             .status,
         near_primitives::views::FinalExecutionStatus::SuccessValue(b"true".to_vec()),
         "Account creation with existing global contract hash must succeed"
+    );
+
+    // Test 1: Verify the account exists and was created successfully
+    let account_balance = Tokens::account(new_account_id.clone())
+        .near_balance()
+        .fetch_from(&network)
+        .await
+        .expect("Account should exist with global contract");
+
+    // Verify storage usage is minimal (confirming it's using global contract)
+    // The storage_usage field shows how much storage the account is using
+    // With a global contract, this should be very small (just account data, not contract code)
+    assert!(
+        account_balance.storage_usage < 300, // Should be just account metadata, not the ~302KB contract code
+        "Storage usage should be minimal for global contract. Found: {} bytes. \
+         A regular contract deployment would use ~302KB, but global contracts share storage.",
+        account_balance.storage_usage
+    );
+
+    // Test 2: Verify the contract is actually deployed by interacting with it
+    // Initialize the NFT contract
+    Contract(new_account_id.clone())
+        .call_function(
+            "new_default_meta",
+            json!({
+                "owner_id": new_account_id.to_string()
+            }),
+        )?
+        .transaction()
+        .gas(NearGas::from_tgas(30))
+        .with_signer(
+            new_account_id.clone(),
+            Signer::new(Signer::from_secret_key(new_account_key.clone()))?,
+        )
+        .send_to(&network)
+        .await?
+        .assert_success();
+
+    // Verify we can call a view method after initialization
+    let metadata_result = Contract(new_account_id.clone())
+        .call_function("nft_metadata", json!({}))?
+        .read_only::<serde_json::Value>()
+        .fetch_from(&network)
+        .await?;
+
+    // Verify the metadata has expected fields
+    assert!(
+        metadata_result.data.get("spec").is_some(),
+        "NFT metadata should have a spec field"
     );
 
     Ok(())
@@ -476,20 +534,28 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
 
     let new_account_id: AccountId = format!("test_global2.{}", root_id).parse()?;
 
-    // Create account with global contract by account ID (referencing the deployer account)
+    // Generate a public key for the new account
+    let new_account_key = signer::generate_secret_key()?;
+    let new_account_public_key = new_account_key.public_key();
+
+    // Create account with global contract by account ID (referencing the deployer account) and a full access key
     assert_eq!(
         Contract(root_id.clone())
             .call_function(
                 "create_account_advanced",
                 json!({
-                    "new_account_id": new_account_id,
+                    "new_account_id": new_account_id.clone(),
                     "options": {
                         "use_global_contract_account_id": global_contract_account_id,
+                        "full_access_keys": [new_account_public_key.to_string()],
                     }
                 }),
             )?
             .transaction()
-            .deposit(NearToken::from_millinear(1))
+            // Named accounts on NEAR need to reserve the storage for the account metadata and
+            // access keys, so we need to include the deposit for the account. Yet, it does not
+            // require to reserve the storage for the contract code if we use global contract, so
+            .deposit(NearToken::from_millinear(5))
             .gas(NearGas::from_tgas(25))
             .with_signer(creator_id, creator_signer)
             .send_to(&network)
@@ -497,6 +563,55 @@ async fn test_create_account_with_global_contract_account_id() -> Result<()> {
             .status,
         near_primitives::views::FinalExecutionStatus::SuccessValue(b"true".to_vec()),
         "Account creation with existing global contract id must succeed"
+    );
+
+    // Test 1: Verify the account exists and was created successfully
+    let account_balance = Tokens::account(new_account_id.clone())
+        .near_balance()
+        .fetch_from(&network)
+        .await
+        .expect("Account should exist with global contract by account ID");
+
+    // Verify storage usage is minimal (confirming it's using global contract)
+    // The storage_usage field shows how much storage the account is using
+    // With a global contract, this should be very small (just account data, not contract code)
+    assert!(
+        account_balance.storage_usage < 300, // Should be just account metadata, not the ~302KB contract code
+        "Storage usage should be minimal for global contract by account ID. Found: {} bytes. \
+         A regular contract deployment would use ~302KB, but global contracts share storage.",
+        account_balance.storage_usage
+    );
+
+    // Test 2: Verify the contract is actually deployed by interacting with it
+    // Initialize the NFT contract
+    Contract(new_account_id.clone())
+        .call_function(
+            "new_default_meta",
+            json!({
+                "owner_id": new_account_id.to_string()
+            }),
+        )?
+        .transaction()
+        .gas(NearGas::from_tgas(30))
+        .with_signer(
+            new_account_id.clone(),
+            Signer::new(Signer::from_secret_key(new_account_key.clone()))?,
+        )
+        .send_to(&network)
+        .await?
+        .assert_success();
+
+    // Verify we can call a view method after initialization
+    let metadata_result = Contract(new_account_id.clone())
+        .call_function("nft_metadata", json!({}))?
+        .read_only::<serde_json::Value>()
+        .fetch_from(&network)
+        .await?;
+
+    // Verify the metadata has expected fields
+    assert!(
+        metadata_result.data.get("spec").is_some(),
+        "NFT metadata should have a spec field"
     );
 
     Ok(())
