@@ -15,7 +15,9 @@ pub struct LinkDrop {
 }
 
 /// Access key allowance for linkdrop keys.
-const ACCESS_KEY_ALLOWANCE: NearToken = NearToken::from_near(1);
+const ACCESS_KEY_ALLOWANCE_AMOUNT: NearToken = NearToken::from_near(1);
+const ACCESS_KEY_ALLOWANCE: Allowance =
+    Allowance::Limited(NonZeroU128::new(ACCESS_KEY_ALLOWANCE_AMOUNT.as_yoctonear()).unwrap());
 
 /// Gas attached to the callback from account creation.
 pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas::from_tgas(13);
@@ -43,12 +45,11 @@ impl LinkDrop {
     }
 
     /// Allows given public key to claim sent balance.
-    /// Takes ACCESS_KEY_ALLOWANCE as fee from deposit to cover account creation via an access key.
     #[payable]
     pub fn send(&mut self, public_key: PublicKey) -> Promise {
         assert!(
-            env::attached_deposit() > ACCESS_KEY_ALLOWANCE,
-            "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE"
+            env::attached_deposit() > NearToken::from_yoctonear(1),
+            "Attached deposit must be at least 1 yoctoNEAR"
         );
         let value = self
             .accounts
@@ -57,13 +58,11 @@ impl LinkDrop {
             .unwrap_or(NearToken::from_near(0));
         self.accounts.insert(
             public_key.clone(),
-            value
-                .saturating_add(env::attached_deposit())
-                .saturating_sub(ACCESS_KEY_ALLOWANCE),
+            value.saturating_add(env::attached_deposit()),
         );
         Promise::new(env::current_account_id()).add_access_key_allowance(
             public_key,
-            Allowance::Limited(NonZeroU128::new(ACCESS_KEY_ALLOWANCE.as_yoctonear()).unwrap()),
+            ACCESS_KEY_ALLOWANCE,
             env::current_account_id(),
             ACCESS_KEY_METHOD_NAMES.to_string(),
         )
@@ -76,10 +75,6 @@ impl LinkDrop {
             env::current_account_id(),
             "Claim only can come from this account"
         );
-        assert!(
-            env::is_valid_account_id(account_id.as_bytes()),
-            "Invalid account id"
-        );
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
@@ -89,20 +84,12 @@ impl LinkDrop {
     }
 
     /// Create new account and and claim tokens to it.
+    #[private]
     pub fn create_account_and_claim(
         &mut self,
         new_account_id: AccountId,
         new_public_key: PublicKey,
     ) -> Promise {
-        assert_eq!(
-            env::predecessor_account_id(),
-            env::current_account_id(),
-            "Create account and claim only can come from this account"
-        );
-        assert!(
-            env::is_valid_account_id(new_account_id.as_bytes()),
-            "Invalid account id"
-        );
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
@@ -125,10 +112,6 @@ impl LinkDrop {
         new_account_id: AccountId,
         new_public_key: PublicKey,
     ) -> Promise {
-        assert!(
-            env::is_valid_account_id(new_account_id.as_bytes()),
-            "Invalid account id"
-        );
         let amount = env::attached_deposit();
         Promise::new(new_account_id)
             .create_account()
@@ -236,16 +219,12 @@ impl LinkDrop {
     }
 
     /// Callback after executing `create_account` or `create_account_advanced`.
+    #[private]
     pub fn on_account_created(
         &mut self,
         predecessor_account_id: AccountId,
         amount: NearToken,
     ) -> bool {
-        assert_eq!(
-            env::predecessor_account_id(),
-            env::current_account_id(),
-            "Callback can only be called from the contract"
-        );
         let creation_succeeded = is_promise_success();
         if !creation_succeeded {
             // In case of failure, send funds back.
@@ -255,12 +234,8 @@ impl LinkDrop {
     }
 
     /// Callback after execution `create_account_and_claim`.
+    #[private]
     pub fn on_account_created_and_claimed(&mut self, amount: NearToken) -> bool {
-        assert_eq!(
-            env::predecessor_account_id(),
-            env::current_account_id(),
-            "Callback can only be called from the contract"
-        );
         let creation_succeeded = is_promise_success();
         if creation_succeeded {
             Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
@@ -382,7 +357,7 @@ mod tests {
             .parse()
             .unwrap();
         // Default the deposit to be 100 times the access key allowance
-        let deposit = ACCESS_KEY_ALLOWANCE.saturating_mul(100);
+        let deposit = ACCESS_KEY_ALLOWANCE_AMOUNT.saturating_mul(100);
 
         // Initialize the mocked blockchain
         testing_env!(
@@ -397,10 +372,7 @@ mod tests {
         contract.send(pk.clone());
 
         // try getting the balance of the key
-        assert_eq!(
-            contract.get_key_balance(pk),
-            deposit.checked_sub(ACCESS_KEY_ALLOWANCE).unwrap()
-        );
+        assert_eq!(contract.get_key_balance(pk), deposit);
     }
 
     #[test]
@@ -413,7 +385,7 @@ mod tests {
             .parse()
             .unwrap();
         // Default the deposit to be 100 times the access key allowance
-        let deposit = ACCESS_KEY_ALLOWANCE.saturating_mul(100);
+        let deposit = ACCESS_KEY_ALLOWANCE_AMOUNT.saturating_mul(100);
 
         // Initialize the mocked blockchain
         testing_env!(
@@ -455,7 +427,7 @@ mod tests {
             .parse()
             .unwrap();
         // Default the deposit to be 100 times the access key allowance
-        let deposit = ACCESS_KEY_ALLOWANCE.saturating_mul(100);
+        let deposit = ACCESS_KEY_ALLOWANCE_AMOUNT.saturating_mul(100);
 
         // Initialize the mocked blockchain
         testing_env!(
@@ -497,7 +469,7 @@ mod tests {
             .parse()
             .unwrap();
         // Default the deposit to be 100 times the access key allowance
-        let deposit = ACCESS_KEY_ALLOWANCE.saturating_mul(100);
+        let deposit = ACCESS_KEY_ALLOWANCE_AMOUNT.saturating_mul(100);
 
         // Initialize the mocked blockchain
         testing_env!(
@@ -510,10 +482,7 @@ mod tests {
 
         // Create the linkdrop
         contract.send(pk.clone());
-        assert_eq!(
-            contract.get_key_balance(pk.clone()),
-            deposit.checked_sub(ACCESS_KEY_ALLOWANCE).unwrap()
-        );
+        assert_eq!(contract.get_key_balance(pk.clone()), deposit);
 
         // Re-initialize the mocked blockchain with new params
         testing_env!(
@@ -529,10 +498,9 @@ mod tests {
         contract.send(pk.clone());
         assert_eq!(
             *contract.accounts.get(&pk).unwrap(),
-            NearToken::from_yoctonear(
-                deposit.as_yoctonear() + deposit.as_yoctonear() + 1
-                    - 2 * ACCESS_KEY_ALLOWANCE.as_yoctonear()
-            )
+            deposit
+                .saturating_add(deposit)
+                .saturating_add(NearToken::from_yoctonear(1))
         );
     }
 

@@ -20,7 +20,7 @@ async fn setup_sandbox() -> Result<(
     Arc<Signer>,
 )> {
     // Start sandbox
-    let sandbox = Sandbox::start_sandbox_with_version("2.7.0").await?;
+    let sandbox = Sandbox::start_sandbox_with_version("2.7.1").await?;
     let network_config = NetworkConfig {
         network_name: "sandbox".to_string(),
         rpc_endpoints: vec![RPCEndpoint::new(sandbox.rpc_addr.parse()?)],
