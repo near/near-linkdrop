@@ -1,9 +1,7 @@
-use near_sdk::store::UnorderedMap;
+use near_sdk::utils::is_promise_success;
 use near_sdk::{
-    AccountId, Allowance, CryptoHash, Gas, NearToken, PanicOnDefault, Promise, PromiseResult,
-    PublicKey, env, near,
+    AccountId, Allowance, CryptoHash, Gas, NearToken, PanicOnDefault, Promise, PublicKey, env, near,
 };
-use std::num::NonZeroU128;
 
 mod models;
 use models::*;
@@ -11,13 +9,15 @@ use models::*;
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct LinkDrop {
-    pub accounts: UnorderedMap<PublicKey, NearToken>,
+    #[allow(deprecated)]
+    pub accounts: near_sdk::store::UnorderedMap<PublicKey, NearToken>,
 }
 
 /// Access key allowance for linkdrop keys.
 const ACCESS_KEY_ALLOWANCE_AMOUNT: NearToken = NearToken::from_near(1);
-const ACCESS_KEY_ALLOWANCE: Allowance =
-    Allowance::Limited(NonZeroU128::new(ACCESS_KEY_ALLOWANCE_AMOUNT.as_yoctonear()).unwrap());
+const ACCESS_KEY_ALLOWANCE: Allowance = Allowance::Limited(
+    std::num::NonZeroU128::new(ACCESS_KEY_ALLOWANCE_AMOUNT.as_yoctonear()).unwrap(),
+);
 
 /// Gas attached to the callback from account creation.
 pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas::from_tgas(13);
@@ -25,22 +25,14 @@ pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas::from_tgas(13);
 /// Methods callable by the function call access key
 const ACCESS_KEY_METHOD_NAMES: &str = "claim,create_account_and_claim";
 
-fn is_promise_success() -> bool {
-    assert_eq!(
-        env::promise_results_count(),
-        1,
-        "Contract expected a result on the callback"
-    );
-    matches!(env::promise_result(0), PromiseResult::Successful(_))
-}
-
 #[near]
 impl LinkDrop {
     /// Initializes the contract with an empty map for the accounts
     #[init]
     pub fn new() -> Self {
         Self {
-            accounts: UnorderedMap::new(b"a"),
+            #[allow(deprecated)]
+            accounts: near_sdk::store::UnorderedMap::new(b"a"),
         }
     }
 
@@ -69,12 +61,11 @@ impl LinkDrop {
     }
 
     /// Claim tokens for specific account that are attached to the public key this tx is signed with.
+    ///
+    /// It can be only called using the access key on the contract account itself (#[private]).
+    /// Use `send` function to register the key to claim.
+    #[private]
     pub fn claim(&mut self, account_id: AccountId) -> Promise {
-        assert_eq!(
-            env::predecessor_account_id(),
-            env::current_account_id(),
-            "Claim only can come from this account"
-        );
         let amount = self
             .accounts
             .remove(&env::signer_account_pk())
@@ -84,6 +75,9 @@ impl LinkDrop {
     }
 
     /// Create new account and and claim tokens to it.
+    ///
+    /// It can be only called using the access key on the contract account itself (#[private]).
+    /// Use `send` function to register the key to claim.
     #[private]
     pub fn create_account_and_claim(
         &mut self,
@@ -178,7 +172,7 @@ impl LinkDrop {
                 let allowance = if key_info.allowance.as_yoctonear() == 0 {
                     Allowance::Unlimited
                 } else {
-                    Allowance::Limited(NonZeroU128::new(key_info.allowance.as_yoctonear()).unwrap())
+                    Allowance::limited(key_info.allowance).unwrap()
                 };
                 promise = promise.add_access_key_allowance(
                     key_info.public_key.clone(),
