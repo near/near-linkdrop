@@ -47,10 +47,8 @@ impl LinkDrop {
             .accounts
             .get(&public_key)
             .unwrap_or(NearToken::from_near(0));
-        self.accounts.insert(
-            &public_key,
-            &value.saturating_add(env::attached_deposit()),
-        );
+        self.accounts
+            .insert(&public_key, &value.saturating_add(env::attached_deposit()));
         Promise::new(env::current_account_id()).add_access_key_allowance(
             public_key,
             ACCESS_KEY_ALLOWANCE,
