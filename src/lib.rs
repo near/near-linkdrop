@@ -40,7 +40,7 @@ impl LinkDrop {
     #[payable]
     pub fn send(&mut self, public_key: PublicKey) -> Promise {
         assert!(
-            env::attached_deposit() > NearToken::from_yoctonear(1),
+            env::attached_deposit() > NearToken::from_near(0),
             "Attached deposit must be at least 1 yoctoNEAR"
         );
         let value = self
