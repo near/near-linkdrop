@@ -10,7 +10,7 @@ use models::*;
 #[derive(PanicOnDefault)]
 pub struct LinkDrop {
     #[allow(deprecated)]
-    pub accounts: near_sdk::store::UnorderedMap<PublicKey, NearToken>,
+    pub accounts: near_sdk::collections::UnorderedMap<PublicKey, NearToken>,
 }
 
 /// Access key allowance for linkdrop keys.
@@ -32,7 +32,7 @@ impl LinkDrop {
     pub fn new() -> Self {
         Self {
             #[allow(deprecated)]
-            accounts: near_sdk::store::UnorderedMap::new(b"a"),
+            accounts: near_sdk::collections::UnorderedMap::new(b"a"),
         }
     }
 
@@ -46,11 +46,10 @@ impl LinkDrop {
         let value = self
             .accounts
             .get(&public_key)
-            .cloned()
             .unwrap_or(NearToken::from_near(0));
         self.accounts.insert(
-            public_key.clone(),
-            value.saturating_add(env::attached_deposit()),
+            &public_key,
+            &value.saturating_add(env::attached_deposit()),
         );
         Promise::new(env::current_account_id()).add_access_key_allowance(
             public_key,
@@ -235,14 +234,14 @@ impl LinkDrop {
             Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
         } else {
             // In case of failure, put the amount back.
-            self.accounts.insert(env::signer_account_pk(), amount);
+            self.accounts.insert(&env::signer_account_pk(), &amount);
         }
         creation_succeeded
     }
 
     /// Returns the balance associated with given key.
     pub fn get_key_balance(&self, key: PublicKey) -> NearToken {
-        *self.accounts.get(&key).expect("Key is missing")
+        self.accounts.get(&key).expect("Key is missing")
     }
 
     /// Returns information associated with a given key.
@@ -250,7 +249,7 @@ impl LinkDrop {
     #[handle_result]
     pub fn get_key_information(&self, key: PublicKey) -> Result<KeyInfo, &'static str> {
         match self.accounts.get(&key) {
-            Some(balance) => Ok(KeyInfo { balance: *balance }),
+            Some(balance) => Ok(KeyInfo { balance }),
             None => Err("Key is missing"),
         }
     }
@@ -491,7 +490,7 @@ mod tests {
         // Attempt to recreate the same linkdrop twice
         contract.send(pk.clone());
         assert_eq!(
-            *contract.accounts.get(&pk).unwrap(),
+            contract.accounts.get(&pk).unwrap(),
             deposit
                 .saturating_add(deposit)
                 .saturating_add(NearToken::from_yoctonear(1))

@@ -10,7 +10,7 @@ repository = "https://github.com/near/near-linkdrop"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { version = "5.17.0", features = ["global-contracts"] }
+near-sdk = { version = "5.17.0", features = ["legacy", "global-contracts"] }
 
 [dev-dependencies]
 near-sdk = { version = "5.14", features = ["unit-testing"] }
